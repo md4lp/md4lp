@@ -1,0 +1,4 @@
+/* Syntax-highlight themes for the Review view (D19). Light is the default; dark overrides it when the
+   OS prefers a dark color scheme. Imported by main.ts alongside katex.min.css. */
+@import 'highlight.js/styles/github.css';
+@import 'highlight.js/styles/github-dark.css' (prefers-color-scheme: dark);

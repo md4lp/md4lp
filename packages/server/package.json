@@ -1,0 +1,22 @@
+{
+  "name": "@md4lp/server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Standalone HTTP API (+ MCP) over the md4lp repo: the single repo owner; web and AI agents are clients.",
+  "license": "Apache-2.0",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.0.4",
+    "@md4lp/anchor": "workspace:*",
+    "@md4lp/canonicalizer": "workspace:*",
+    "@md4lp/comments": "workspace:*",
+    "@md4lp/repo": "workspace:*",
+    "hono": "4.12.23",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "zod": "4.4.3"
+  }
+}

@@ -1,0 +1,3 @@
+# Corpus and source are LF-only so byte-exact round-trip tests are deterministic across platforms.
+*.md text eol=lf
+*.ts text eol=lf

@@ -1,0 +1,16 @@
+{
+  "name": "@md4lp/repo",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "RepoBackend interface + LocalGitBackend (isomorphic-git). The BYO seam: local now, remote later.",
+  "license": "Apache-2.0",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@md4lp/async-queue": "workspace:*",
+    "isomorphic-git": "^1.38.4"
+  }
+}

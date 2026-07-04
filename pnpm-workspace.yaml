@@ -1,0 +1,37 @@
+packages:
+  - 'packages/*'
+
+# --- Supply-chain security hardening ---
+
+# Default-deny dependency lifecycle scripts. With pnpm 10+, NO dependency may run
+# install/preinstall/postinstall scripts unless its name is listed here. We keep this
+# list EMPTY on purpose: our deps are pure JS. The only package in the tree with an
+# install script is `fsevents` (macOS file-watching), which is optional and only used
+# by `--watch`; `pnpm test` (vitest run) does not need it built.
+onlyBuiltDependencies: []
+
+# Cooldown against fresh malicious versions. Refuse to install any package version
+# published less than this many MINUTES ago. The recent npm worm attacks publish a bad
+# version and it is taken down within hours to ~1-2 days; a cooldown sidesteps that window.
+# 4320 = 3 days (strong but does not block week-old stable releases). Raise if desired;
+# note that a higher value can force older patch versions or block very fresh releases.
+minimumReleaseAge: 4320
+
+# Build-script approvals. Each entry: true = allowed to run its install script, false = acknowledged
+# but NOT built (script stays denied). `esbuild` ships its native binary via platform-specific
+# optional packages (@esbuild/<plat>), so it works WITHOUT its postinstall — Vite/vitest (and now tsx,
+# our server TS runner) all use it script-less. Kept false: acknowledged, never built.
+allowBuilds:
+  esbuild: false
+
+# Force a single KaTeX across the tree: Crepe@7.21.2 pulls katex 0.17.0, rehype-katex@7.0.1 pulls
+# 0.16.x. Two copies let Vite's dep-optimizer hand Crepe the wrong one (TypeError on block math) and
+# split the CSS from the renderer. Pin everything to 0.17.0 (Crepe's version) — rehype-katex only
+# calls the stable renderToString API.
+overrides:
+  katex: 0.17.0
+  # codemirror 6.65.x in the registry is an "accidentally mis-tagged instance of 5.65.x" (CodeMirror 5,
+  # which has no `basicSetup`). Crepe imports `basicSetup` from 'codemirror' (^6), and pnpm picks the
+  # numerically-highest 6.65.x (= CM5) → basicSetup is undefined → CodeMirror crashes editing code
+  # blocks. Pin to the real CodeMirror 6 meta-package.
+  codemirror: 6.0.2

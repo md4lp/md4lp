@@ -1,0 +1,25 @@
+{
+  "name": "@md4lp/render",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Render Markdown to HTML carrying source positions, and map a DOM selection back to .md offsets.",
+  "license": "Apache-2.0",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "rehype-highlight": "7.0.2",
+    "rehype-katex": "7.0.1",
+    "rehype-parse": "^9.0.1",
+    "rehype-remark": "^10.0.1",
+    "rehype-stringify": "^10.0.1",
+    "remark-gfm": "^4.0.1",
+    "remark-math": "6.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
+    "remark-stringify": "^11.0.0",
+    "unified": "^11.0.5"
+  }
+}

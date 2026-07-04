@@ -1,0 +1,9 @@
+{
+  "repoDir": "./packages/web/.sample-repo",
+  "port": 8787,
+  "users": {
+    "alice": { "role": "editor",    "email": "alice@example.com" },
+    "bob":   { "role": "commenter", "email": "bob@example.com"   },
+    "agent-claude": { "role": "editor", "email": "agent@md4lp.local" }
+  }
+}

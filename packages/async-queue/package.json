@@ -1,0 +1,12 @@
+{
+  "name": "@md4lp/async-queue",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Single-lane async mutex: serialize read-modify-write sequences within one process. Standalone, dependency-free, reusable.",
+  "license": "Apache-2.0",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  }
+}

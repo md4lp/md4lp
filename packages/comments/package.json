@@ -1,0 +1,18 @@
+{
+  "name": "@md4lp/comments",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "CommentStore: per-user YAML comment sidecars under .md4lp/, anchored via @md4lp/anchor, stored via a RepoBackend.",
+  "license": "Apache-2.0",
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@md4lp/anchor": "workspace:*",
+    "@md4lp/async-queue": "workspace:*",
+    "@md4lp/repo": "workspace:*",
+    "yaml": "^2.9.0"
+  }
+}

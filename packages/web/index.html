@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>md4lp</title>
+    <style>
+      :root {
+        font-family: system-ui, sans-serif;
+        --bg: #fff; --fg: #1f2328; --muted: #57606a; --surface: #fafafa; --card: #fff;
+        --border: #d0d7de; --link: #2f6feb; --code-bg: #f0f0f3; --quote-bg: #fff3a0; --quote-fg: #8a6d00;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d1117; --fg: #e6edf3; --muted: #9198a1; --surface: #161b22; --card: #1c2128;
+          --border: #30363d; --link: #6c8cff; --code-bg: #1e2430; --quote-bg: #4a3f15; --quote-fg: #ffe08a;
+        }
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; height: 100vh; display: flex; flex-direction: column; background: var(--bg); color: var(--fg); }
+      header { padding: 8px 12px; background: #1e1e2e; color: #eee; font-size: 13px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+      header b { color: #fff; }
+      header .spacer { flex: 1; }
+      header select, header button { font: inherit; padding: 3px 8px; border-radius: 6px; border: 1px solid #555; background: #2a2a3a; color: #eee; cursor: pointer; }
+      header button.active { background: #6c8cff; color: #fff; border-color: #6c8cff; }
+      header button:disabled { opacity: .4; cursor: not-allowed; }
+      #status { color: #9bd; font-size: 12px; }
+      main { flex: 1; display: flex; min-height: 0; }
+      #edit, #reviewWrap { flex: 1; min-width: 0; overflow: auto; }
+      #reviewWrap { display: none; }
+      /* Reading column: comfortable measure + line-height for prose (D19). */
+      #review { flex: 1; padding: 24px 32px; overflow: auto; line-height: 1.65; font-size: 15px; color: var(--fg); }
+      #review > * { max-width: 44em; }
+      #sidebar { width: 320px; border-left: 1px solid var(--border); overflow: auto; padding: 8px 10px; background: var(--surface); }
+      #sidebar h4 { margin: 4px 0 8px; font-size: 13px; color: var(--muted); }
+      #searchBar { display: flex; gap: 6px; align-items: center; margin-bottom: 10px; }
+      #search { flex: 1; min-width: 0; font: inherit; font-size: 12px; padding: 4px 7px; border: 1px solid var(--border); border-radius: 6px; background: var(--bg); color: var(--fg); }
+      #searchCount { font-size: 11px; color: var(--muted); white-space: nowrap; }
+      #searchBar button { font: inherit; font-size: 12px; padding: 3px 7px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--fg); cursor: pointer; }
+      /* footnotes (rendered by remark-gfm): the reference sup + the footnotes section at the end */
+      #review sup a { text-decoration: none; color: var(--link); }
+      #review .footnotes { margin-top: 28px; padding-top: 12px; border-top: 1px solid var(--border); font-size: 13px; color: var(--muted); }
+      #review .footnotes ol { padding-left: 18px; }
+      #toc:not(:empty) { margin-bottom: 12px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+      #toc .toc-title { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-bottom: 6px; }
+      #toc .toc-item { display: block; font-size: 12px; color: var(--link); cursor: pointer; padding: 2px 0; text-decoration: none; }
+      #toc .toc-item:hover { text-decoration: underline; }
+      #toc .toc-l1 { font-weight: 600; }
+      #toc .toc-l2 { padding-left: 10px; }
+      #toc .toc-l3 { padding-left: 20px; }
+      #toc .toc-l4, #toc .toc-l5, #toc .toc-l6 { padding-left: 30px; }
+      .cmt { border: 1px solid var(--border); border-radius: 8px; padding: 8px; margin-bottom: 8px; background: var(--card); font-size: 13px; }
+      .cmt .q { color: var(--quote-fg); background: var(--quote-bg); border-radius: 3px; padding: 0 3px; }
+      .cmt .meta { float: right; font-size: 11px; }
+      .cmt .sug { margin-top: 4px; font-size: 12px; color: #2da44e; }
+      .hint { color: #888; font-size: 12px; }
+      ::highlight(md4lp-comment) { background: var(--quote-bg); }
+      ::highlight(md4lp-focus) { background: #ffd54a; color: #1f2328; box-shadow: 0 0 0 2px #ffb300; }
+      ::highlight(md4lp-search) { background: #b3e5fc; color: #1f2328; }
+      ::highlight(md4lp-search-current) { background: #ffb300; color: #1f2328; }
+      .cmt { cursor: pointer; }
+      .cmt .actions { margin-top: 6px; display: flex; gap: 6px; }
+      .cmt .actions button { font: inherit; font-size: 11px; padding: 2px 8px; border-radius: 6px; border: 1px solid var(--border); background: var(--card); color: var(--fg); cursor: pointer; }
+      .cmt .sug { margin-top: 4px; font-size: 12px; }
+      .cmt .sug .old { color: #cf222e; text-decoration: line-through; }
+      .cmt .sug .new { color: #2da44e; }
+      .cmt .reply { margin: 6px 0 0 10px; padding-left: 8px; border-left: 2px solid var(--border); font-size: 12px; }
+      .cmt .reactions { margin-top: 4px; display: flex; gap: 4px; flex-wrap: wrap; }
+      .cmt .reactions .rx { font-size: 12px; padding: 1px 7px; border: 1px solid var(--border); border-radius: 11px; background: var(--card); color: var(--fg); cursor: pointer; }
+      .cmt .reactions .rx.mine { background: #dbe7ff; border-color: #6c8cff; }
+      .cmt .editbox { margin: 4px 0; }
+      .cmt .warn { background: #fff3cd; border: 1px solid #ffe69c; border-radius: 6px; padding: 4px 8px; margin-bottom: 4px; font-size: 12px; color: #7a5c00; }
+      .cmt .actions { margin-top: 4px; }
+      .cmt .body { display: inline-block; }
+      .cmt .body p { margin: 2px 0; }
+      .cmt .body code { background: var(--code-bg); padding: 0 3px; border-radius: 3px; }
+      .cmt .body ul, .cmt .body ol { margin: 2px 0; padding-left: 18px; }
+      .cmt .body pre { background: var(--code-bg); padding: 6px; border-radius: 4px; overflow: auto; }
+      .cmt textarea { width: 100%; margin-top: 4px; font: inherit; background: var(--bg); color: var(--fg); border: 1px solid var(--border); border-radius: 4px; }
+      #popover { position: fixed; z-index: 20; display: none; flex-direction: column; gap: 4px; padding: 4px; background: #1e1e2e; border-radius: 8px; box-shadow: 0 4px 14px rgba(0,0,0,.35); }
+      #popover button { font: inherit; font-size: 12px; padding: 5px 10px; border-radius: 6px; border: 0; background: #2a2a3a; color: #eee; cursor: pointer; text-align: left; }
+      #popover button:hover { background: #6c8cff; color: #fff; }
+      #review h1 { border-bottom: 1px solid var(--border); padding-bottom: .3em; }
+      /* inline code only — block code (<pre><code class="hljs">) is styled by the highlight.js theme */
+      #review code:not(.hljs) { background: var(--code-bg); padding: .1em .3em; border-radius: 4px; }
+      #review pre { padding: 12px 14px; border-radius: 6px; overflow: auto; position: relative; }
+      #review pre .copy-btn { position: absolute; top: 6px; right: 6px; font: inherit; font-size: 11px; padding: 2px 8px; border: 1px solid var(--border); border-radius: 6px; background: var(--card); color: var(--fg); cursor: pointer; opacity: 0; transition: opacity .12s; }
+      #review pre:hover .copy-btn { opacity: 1; }
+      #review pre .copy-btn::after { content: "Copy"; }
+      #review pre .copy-btn[data-state="done"]::after { content: "Copied!"; }
+      #review a { color: var(--link); }
+      #review table { border-collapse: collapse; }
+      #review th, #review td { border: 1px solid var(--border); padding: 6px 12px; }
+      #review th { background: var(--surface); }
+      #review blockquote { color: var(--muted); border-left: 3px solid var(--border); margin: 0; padding: 0 1em; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <b>md4lp</b>
+      <label>User <select id="user"></select></label>
+      <label>File <select id="file"></select></label>
+      <button id="btnEdit">Edit</button>
+      <button id="btnReview" class="active">Review + comment</button>
+      <button id="btnMerge">Publish</button>
+      <span class="spacer"></span>
+      <span id="status"></span>
+    </header>
+    <main>
+      <div id="edit"></div>
+      <div id="reviewWrap">
+        <div id="review"></div>
+        <div id="sidebar"><div id="searchBar"><input id="search" type="search" placeholder="Search in document…" /><span id="searchCount"></span><button id="zoomOut" title="Smaller text">A−</button><button id="zoomIn" title="Larger text">A+</button></div><div id="toc"></div><h4>Comments</h4><div id="cmtList"></div></div>
+      </div>
+    </main>
+    <div id="popover">
+      <button data-act="comment">💬 Comment</button>
+      <button data-act="suggest">✏️ Suggest change</button>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
