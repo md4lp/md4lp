@@ -19,3 +19,6 @@ app-suggest.png
 test-results/
 playwright-report/
 .e2e-repo/
+
+# Graphify knowledge graph (generated, regenerable via `graphify .`)
+graphify-out/
