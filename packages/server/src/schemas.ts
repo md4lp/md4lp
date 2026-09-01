@@ -56,3 +56,90 @@ export const replyBody = z.object(replyFields)
 export const editBody = z.object(editFields)
 export const reactBody = z.object(reactFields)
 export const suggestionRefBody = z.object(suggestionRefFields)
+
+export const lookupIdentifierBody = z.object({
+  identifier: z.string().min(1),
+})
+
+export const checkUsernameBody = z.object({
+  username: z.string().min(1),
+})
+
+export const requestCodeBody = z.object({
+  identifier: z.string().min(1).optional(),
+  email: z.string().optional(),
+  purpose: z.string().min(1).default('login'),
+  name: z.string().optional(),
+  username: z.string().optional(),
+  metadata: z.record(z.string(), z.unknown()).optional(),
+}).transform((data) => ({
+  identifier: data.identifier || data.email || '',
+  purpose: data.purpose,
+  name: data.name,
+  username: data.username,
+  metadata: data.metadata,
+})).refine((data) => data.identifier.length > 0, {
+  message: 'Email or username is required',
+})
+
+export const verifyCodeBody = z.object({
+  identifier: z.string().min(1).optional(),
+  email: z.string().optional(),
+  purpose: z.string().min(1).default('login'),
+  code: z.string().min(1),
+  name: z.string().optional(),
+  username: z.string().optional(),
+}).transform((data) => ({
+  identifier: data.identifier || data.email || '',
+  purpose: data.purpose,
+  code: data.code,
+  name: data.name,
+  username: data.username,
+})).refine((data) => data.identifier.length > 0, {
+  message: 'Email or username is required',
+})
+
+export const emailOnlyBody = z.object({
+  email: z.string().email(),
+})
+
+export const verifyAddEmailBody = z.object({
+  email: z.string().email(),
+  code: z.string().min(1),
+})
+
+export const updateProfileBody = z.object({
+  name: z.string().optional(),
+  username: z.string().optional(),
+  avatarUrl: z.string().optional(),
+})
+
+export const createTeamBody = z.object({
+  name: z.string().min(1),
+})
+
+export const joinDomainTeamBody = z.object({
+  teamId: z.string(),
+  contextEmail: z.string().email(),
+})
+
+export const inviteTeamMemberBody = z.object({
+  target: z.string().min(1),
+  role: z.enum(['admin', 'member']).optional(),
+})
+
+export const acceptTeamInvitationBody = z.object({
+  contextEmail: z.string().email().optional(),
+})
+
+export const expelDomainMemberBody = z.object({
+  targetUserId: z.string(),
+  reverificationCode: z.string().min(1),
+})
+
+export const removeTeamMemberBody = z.object({
+  targetUserId: z.string().min(1),
+  reverificationCode: z.string().min(1),
+})
+
+

@@ -16,7 +16,7 @@ const viteArgs = ['packages/web']
 if (process.env.MD4LP_WEB_PORT) viteArgs.push('--port', process.env.MD4LP_WEB_PORT, '--strictPort')
 
 const procs = [
-  { name: 'server', cmd: bin('tsx'), args: ['packages/server/src/bin.ts'] },
+  { name: 'server', cmd: bin('tsx'), args: ['watch', 'packages/server/src/bin.ts'] },
   { name: 'web', cmd: bin('vite'), args: viteArgs },
 ]
 

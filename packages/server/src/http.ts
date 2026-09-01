@@ -44,10 +44,34 @@ export function createHttpApp(api: Api): Hono {
   app.all('/api/*', async (c) => {
     const url = new URL(c.req.url)
     const method = c.req.method
-    const user = url.searchParams.get('user') ?? c.req.header('x-md4lp-user') ?? DEFAULT_USER
-    const body = method === 'POST' || method === 'PUT' ? await c.req.json().catch(() => ({})) : undefined
+
+    // Check for Bearer token, x-md4lp-session header, or cookie
+    const authHeader = c.req.header('authorization')
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7).trim() : undefined
+    const sessionToken = bearerToken ?? c.req.header('x-md4lp-session') ?? getCookie(c.req.header('cookie'), 'md4lp_session')
+
+    let authContext: import('./api').AuthContext | undefined
+    let user = url.searchParams.get('user') ?? c.req.header('x-md4lp-user')
+
+    if (sessionToken) {
+      const authResult = await api.auth.authenticateToken(sessionToken)
+      if (authResult) {
+        authContext = {
+          token: sessionToken,
+          userId: authResult.user.id,
+          email: authResult.currentEmail,
+          name: authResult.user.name,
+        }
+        if (!user) {
+          user = authResult.user.name || authResult.user.defaultEmail || authResult.user.id
+        }
+      }
+    }
+
+    user = user ?? DEFAULT_USER
+    const body = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) ? await c.req.json().catch(() => ({})) : undefined
     try {
-      const result = await api.handle(method, url.pathname, url.searchParams, body, user)
+      const result = await api.handle(method, url.pathname, url.searchParams, body, user, authContext)
       return jsonResponse(result.status, result.json)
     } catch (err) {
       // Log the full error (incl. stack) server-side, but never return the stack to the client.
@@ -58,6 +82,14 @@ export function createHttpApp(api: Api): Hono {
 
   return app
 }
+
+function getCookie(cookieHeader: string | undefined, name: string): string | undefined {
+  if (!cookieHeader) return undefined
+  const match = cookieHeader.match(new RegExp(`(^|;\\s*)${name}=([^;]*)`))
+  return match && match[2] ? decodeURIComponent(match[2]) : undefined
+}
+
+
 
 // Build the JSON Response directly (instead of Hono's typed c.json) so any numeric status is accepted.
 function jsonResponse(status: number, json: unknown): Response {

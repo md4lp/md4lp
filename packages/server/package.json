@@ -10,13 +10,14 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@casl/ability": "^7.0.1",
     "@hono/node-server": "2.0.4",
     "@md4lp/anchor": "workspace:*",
     "@md4lp/canonicalizer": "workspace:*",
     "@md4lp/comments": "workspace:*",
     "@md4lp/repo": "workspace:*",
-    "hono": "4.12.23",
     "@modelcontextprotocol/sdk": "1.29.0",
+    "hono": "4.12.23",
     "zod": "4.4.3"
   }
 }

@@ -58,15 +58,118 @@ const els = {
   btnMerge: $<HTMLButtonElement>('#btnMerge'),
   status: $<HTMLSpanElement>('#status'),
   popover: $<HTMLDivElement>('#popover'),
+  btnOpenAuth: $<HTMLButtonElement>('#btnOpenAuth'),
+  userProfileBadge: $<HTMLDivElement>('#userProfileBadge'),
+  userBadgeAvatar: $<HTMLImageElement>('#userBadgeAvatar'),
+  userBadgeName: $<HTMLSpanElement>('#userBadgeName'),
+  btnManageAccount: $<HTMLButtonElement>('#btnManageAccount'),
+  btnLogout: $<HTMLButtonElement>('#btnLogout'),
+  authModal: $<HTMLDialogElement>('#authModal'),
+  authModalTitle: $<HTMLHeadingElement>('#authModalTitle'),
+  authErrorBanner: $<HTMLDivElement>('#authErrorBanner'),
+  authStepEmail: $<HTMLDivElement>('#authStepEmail'),
+  authStepRegister: $<HTMLDivElement>('#authStepRegister'),
+  authStepCode: $<HTMLDivElement>('#authStepCode'),
+  regEmailInput: $<HTMLInputElement>('#regEmailInput'),
+  regUsernameInput: $<HTMLInputElement>('#regUsernameInput'),
+  regUsernameFeedback: $<HTMLDivElement>('#regUsernameFeedback'),
+  regNameInput: $<HTMLInputElement>('#regNameInput'),
+  btnBackToIdentifier: $<HTMLButtonElement>('#btnBackToIdentifier'),
+  btnRegisterSendCode: $<HTMLButtonElement>('#btnRegisterSendCode'),
+  authEmailInput: $<HTMLInputElement>('#authEmailInput'),
+  authCodeInput: $<HTMLInputElement>('#authCodeInput'),
+  authTargetEmail: $<HTMLElement>('#authTargetEmail'),
+  authDevHelper: $<HTMLDivElement>('#authDevHelper'),
+  btnSendCode: $<HTMLButtonElement>('#btnSendCode'),
+  btnVerifyCode: $<HTMLButtonElement>('#btnVerifyCode'),
+  btnCancelAuth: $<HTMLButtonElement>('#btnCancelAuth'),
+  btnBackToEmail: $<HTMLButtonElement>('#btnBackToEmail'),
+  accountModal: $<HTMLDialogElement>('#accountModal'),
+  accErrorBanner: $<HTMLDivElement>('#accErrorBanner'),
+  accAvatarLarge: $<HTMLDivElement>('#accAvatarLarge'),
+  accUserName: $<HTMLElement>('#accUserName'),
+  accUserHandle: $<HTMLElement>('#accUserHandle'),
+  accEditName: $<HTMLInputElement>('#accEditName'),
+  accEditUsername: $<HTMLInputElement>('#accEditUsername'),
+  accEditAvatar: $<HTMLInputElement>('#accEditAvatar'),
+  btnSaveProfile: $<HTMLButtonElement>('#btnSaveProfile'),
+  accEmailList: $<HTMLDivElement>('#accEmailList'),
+  addEmailInput: $<HTMLInputElement>('#addEmailInput'),
+  btnSendAddCode: $<HTMLButtonElement>('#btnSendAddCode'),
+  btnCloseAccountModal: $<HTMLButtonElement>('#btnCloseAccountModal'),
+  btnTeams: $<HTMLButtonElement>('#btnTeams'),
+  teamsModal: $<HTMLDialogElement>('#teamsModal'),
+  teamsErrorBanner: $<HTMLDivElement>('#teamsErrorBanner'),
+  pendingInvsSection: $<HTMLDivElement>('#pendingInvsSection'),
+  pendingInvsList: $<HTMLDivElement>('#pendingInvsList'),
+  joinedTeamsList: $<HTMLDivElement>('#joinedTeamsList'),
+  availDomainTeamsSection: $<HTMLDivElement>('#availDomainTeamsSection'),
+  availDomainTeamsList: $<HTMLDivElement>('#availDomainTeamsList'),
+  newTeamNameInput: $<HTMLInputElement>('#newTeamNameInput'),
+  btnCreateTeam: $<HTMLButtonElement>('#btnCreateTeam'),
+  btnCloseTeamsModal: $<HTMLButtonElement>('#btnCloseTeamsModal'),
+  teamDetailsModal: $<HTMLDialogElement>('#teamDetailsModal'),
+  teamDetailName: $<HTMLElement>('#teamDetailName'),
+  teamDetailTypeBadge: $<HTMLElement>('#teamDetailTypeBadge'),
+  teamDetailErrorBanner: $<HTMLDivElement>('#teamDetailErrorBanner'),
+  teamDetailMemberCount: $<HTMLElement>('#teamDetailMemberCount'),
+  teamDetailMemberList: $<HTMLDivElement>('#teamDetailMemberList'),
+  teamInviteSection: $<HTMLDivElement>('#teamInviteSection'),
+  teamInviteTargetInput: $<HTMLInputElement>('#teamInviteTargetInput'),
+  teamInviteRoleSelect: $<HTMLSelectElement>('#teamInviteRoleSelect'),
+  btnSendTeamInvite: $<HTMLButtonElement>('#btnSendTeamInvite'),
+  memberExpelPrompt: $<HTMLDivElement>('#memberExpelPrompt'),
+  memberExpelTargetEmail: $<HTMLElement>('#memberExpelTargetEmail'),
+  memberExpelDevHelper: $<HTMLDivElement>('#memberExpelDevHelper'),
+  memberExpelCodeInput: $<HTMLInputElement>('#memberExpelCodeInput'),
+  btnConfirmMemberExpel: $<HTMLButtonElement>('#btnConfirmMemberExpel'),
+  btnCancelMemberExpel: $<HTMLButtonElement>('#btnCancelMemberExpel'),
+  btnLeaveTeam: $<HTMLButtonElement>('#btnLeaveTeam'),
+  btnCloseTeamDetailsModal: $<HTMLButtonElement>('#btnCloseTeamDetailsModal'),
+}
+
+interface UserEmail {
+  email: string
+  userId: string
+  verifiedAt: number | null
+  isPrimary: boolean
+  createdAt: number
+}
+
+interface UserProfile {
+  id: string
+  username: string
+  name: string
+  avatarUrl?: string
+  defaultEmail: string
+  emails: UserEmail[]
+}
+
+let currentUser: UserProfile | null = null
+let currentEmail = ''
+
+function escapeHtml(str: string): string {
+  return str.replace(/[&<>'"]/g, (tag) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    "'": '&#39;',
+    '"': '&quot;',
+  }[tag] || tag))
 }
 
 async function api<T = unknown>(method: string, path: string, opts: { query?: Record<string, string>; body?: unknown } = {}): Promise<T> {
   const q = new URLSearchParams({ user, ...(opts.query ?? {}) })
+  const token = localStorage.getItem('md4lp_token')
+  const headers: Record<string, string> = {}
+  if (opts.body) headers['content-type'] = 'application/json'
+  if (token) headers['authorization'] = `Bearer ${token}`
+
   let res: Response
   try {
     res = await fetch(`/api/${path}?${q.toString()}`, {
       method,
-      headers: opts.body ? { 'content-type': 'application/json' } : undefined,
+      headers: Object.keys(headers).length > 0 ? headers : undefined,
       body: opts.body ? JSON.stringify(opts.body) : undefined,
     })
   } catch {
@@ -685,6 +788,164 @@ async function sendReply(body: string): Promise<void> {
   await renderReview()
 }
 
+// ---------- auth & multi-email UI ----------
+async function refreshAuthUI(): Promise<void> {
+  const token = localStorage.getItem('md4lp_token')
+  if (!token) {
+    currentUser = null
+    els.btnOpenAuth.style.display = 'inline-block'
+    els.userProfileBadge.style.display = 'none'
+    return
+  }
+
+  try {
+    const res = await api<{ ok: boolean; user: UserProfile; currentEmail: string }>('GET', 'auth/me')
+    if (res.ok && res.user) {
+      currentUser = res.user
+      currentEmail = res.currentEmail
+      els.btnOpenAuth.style.display = 'none'
+      els.userProfileBadge.style.display = 'flex'
+      els.userBadgeName.textContent = `${res.user.name} (@${res.user.username})`
+      if (res.user.avatarUrl) {
+        els.userBadgeAvatar.src = res.user.avatarUrl
+        els.userBadgeAvatar.style.display = 'inline-block'
+      } else {
+        els.userBadgeAvatar.style.display = 'none'
+      }
+    } else {
+      localStorage.removeItem('md4lp_token')
+      els.btnOpenAuth.style.display = 'inline-block'
+      els.userProfileBadge.style.display = 'none'
+    }
+  } catch {
+    localStorage.removeItem('md4lp_token')
+    els.btnOpenAuth.style.display = 'inline-block'
+    els.userProfileBadge.style.display = 'none'
+  }
+}
+
+function renderAccountEmails(): void {
+  if (!currentUser) return
+  els.accUserName.textContent = currentUser.name
+  els.accUserHandle.textContent = `@${currentUser.username} • Primary: ${currentUser.defaultEmail}`
+  els.accEditName.value = currentUser.name
+  els.accEditUsername.value = currentUser.username
+  els.accEditAvatar.value = currentUser.avatarUrl || ''
+
+  if (currentUser.avatarUrl) {
+    els.accAvatarLarge.innerHTML = `<img src="${currentUser.avatarUrl}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;" alt="${currentUser.name}" />`
+  } else {
+    els.accAvatarLarge.textContent = currentUser.name.charAt(0).toUpperCase() || 'U'
+  }
+
+  els.accEmailList.innerHTML = currentUser.emails.map((e) => {
+    const safeId = btoa(e.email).replace(/=/g, '')
+    if (e.verifiedAt) {
+      return `
+        <div class="email-item">
+          <div class="email-header-row">
+            <div>
+              <b>${e.email}</b>
+              ${e.isPrimary ? '<span class="badge-primary">Primary</span>' : ''}
+              <span style="color: #2da44e; font-size: 11px; margin-left: 4px;">✓ Verified</span>
+            </div>
+            <div style="display: flex; gap: 4px;">
+              ${!e.isPrimary ? `<button class="btnMakePrimary" data-email="${e.email}">Make Primary</button>` : ''}
+              ${!e.isPrimary && currentUser!.emails.length > 1 ? `<button class="btnRemoveEmail" data-email="${e.email}" style="color: #cf222e;">Remove</button>` : ''}
+            </div>
+          </div>
+        </div>
+      `
+    } else {
+      return `
+        <div class="email-item" style="background: var(--surface); padding: 8px; border-radius: 6px; margin-bottom: 6px;">
+          <div class="email-header-row">
+            <div>
+              <b>${e.email}</b>
+              <span class="badge-pending" style="margin-left: 4px;">⏳ Pending Verification</span>
+            </div>
+            <div style="display: flex; gap: 4px;">
+              <button class="btnToggleVerify" data-target="verifyBox_${safeId}">Verify Code</button>
+              <button class="btnResendCode" data-email="${e.email}">Resend</button>
+              <button class="btnRemoveEmail" data-email="${e.email}" style="color: #cf222e;">Delete</button>
+            </div>
+          </div>
+          <div id="verifyBox_${safeId}" class="verify-inline-box" style="display: none; margin-top: 8px;">
+            <div class="dev-helper dev-helper-inline" id="devHelper_${safeId}" style="display: none;"></div>
+            <div style="display: flex; gap: 6px; align-items: center;">
+              <input type="text" class="inputPendingCode" id="input_${safeId}" maxlength="6" placeholder="Enter 6-digit code" style="width: 150px; margin: 0; padding: 4px 8px;" />
+              <button class="primary btnSubmitPendingVerify" data-email="${e.email}" data-input="input_${safeId}">Confirm</button>
+            </div>
+          </div>
+        </div>
+      `
+    }
+  }).join('')
+
+  els.accEmailList.querySelectorAll<HTMLButtonElement>('.btnMakePrimary').forEach((btn) => {
+    btn.onclick = () => run(async () => {
+      const targetEmail = btn.dataset.email!
+      await api('POST', 'auth/emails/primary', { body: { email: targetEmail } })
+      await refreshAuthUI()
+      renderAccountEmails()
+      setStatus(`Primary email set to ${targetEmail}`)
+    })
+  })
+
+  els.accEmailList.querySelectorAll<HTMLButtonElement>('.btnRemoveEmail').forEach((btn) => {
+    btn.onclick = () => run(async () => {
+      const targetEmail = btn.dataset.email!
+      await api('DELETE', 'auth/emails', { body: { email: targetEmail } })
+      await refreshAuthUI()
+      renderAccountEmails()
+      setStatus(`Removed email ${targetEmail}`)
+    })
+  })
+
+  els.accEmailList.querySelectorAll<HTMLButtonElement>('.btnToggleVerify').forEach((btn) => {
+    btn.onclick = () => {
+      const box = document.getElementById(btn.dataset.target!)
+      if (box) box.style.display = box.style.display === 'none' ? 'block' : 'none'
+    }
+  })
+
+  els.accEmailList.querySelectorAll<HTMLButtonElement>('.btnResendCode').forEach((btn) => {
+    btn.onclick = () => run(async () => {
+      const targetEmail = btn.dataset.email!
+      const res = await api<{ ok: boolean; devCode?: string }>('POST', 'auth/emails/request-add', {
+        body: { email: targetEmail },
+      })
+      const safeId = btoa(targetEmail).replace(/=/g, '')
+      const box = document.getElementById(`verifyBox_${safeId}`)
+      const helper = document.getElementById(`devHelper_${safeId}`)
+      const input = document.getElementById(`input_${safeId}`) as HTMLInputElement
+      if (box) box.style.display = 'block'
+      if (helper && res.devCode) {
+        helper.textContent = `[Dev code]: ${res.devCode}`
+        helper.style.display = 'block'
+      }
+      if (input && res.devCode) input.value = res.devCode
+      setStatus(`Verification code sent to ${targetEmail}`)
+    })
+  })
+
+  els.accEmailList.querySelectorAll<HTMLButtonElement>('.btnSubmitPendingVerify').forEach((btn) => {
+    btn.onclick = () => run(async () => {
+      const targetEmail = btn.dataset.email!
+      const inputEl = document.getElementById(btn.dataset.input!) as HTMLInputElement
+      const code = inputEl?.value.trim()
+      if (!code) {
+        alert('Please enter the verification code')
+        return
+      }
+      await api('POST', 'auth/emails/verify-add', { body: { email: targetEmail, code } })
+      await refreshAuthUI()
+      renderAccountEmails()
+      setStatus(`✓ Successfully verified ${targetEmail}`)
+    })
+  })
+}
+
 // ---------- events ----------
 els.review.addEventListener('mouseup', () => setTimeout(onReviewMouseUp, 0))
 // Editor interaction (typing / cursor) → debounced auto-save + throttled lock heartbeat (D20).
@@ -731,4 +992,628 @@ els.btnReview.addEventListener('click', () =>
 )
 els.btnMerge.addEventListener('click', () => run(() => exitEditView(true)))
 
-run(boot)
+let pendingAuthIdentifier = ''
+let pendingAuthUsername: string | undefined
+let pendingAuthName: string | undefined
+
+// Auth Modal Listeners
+els.btnOpenAuth.addEventListener('click', () => {
+  els.authErrorBanner.style.display = 'none'
+  els.authErrorBanner.textContent = ''
+  els.authStepEmail.style.display = 'block'
+  els.authStepRegister.style.display = 'none'
+  els.authStepCode.style.display = 'none'
+  els.authEmailInput.value = ''
+  els.regEmailInput.value = ''
+  els.regUsernameInput.value = ''
+  els.regNameInput.value = ''
+  els.authCodeInput.value = ''
+  els.authDevHelper.style.display = 'none'
+  pendingAuthIdentifier = ''
+  pendingAuthUsername = undefined
+  pendingAuthName = undefined
+  els.authModal.showModal()
+})
+
+els.btnCancelAuth.addEventListener('click', () => els.authModal.close())
+
+els.btnBackToIdentifier.addEventListener('click', () => {
+  els.authErrorBanner.style.display = 'none'
+  els.authErrorBanner.textContent = ''
+  els.authStepEmail.style.display = 'block'
+  els.authStepRegister.style.display = 'none'
+  els.authStepCode.style.display = 'none'
+})
+
+els.btnBackToEmail.addEventListener('click', () => {
+  els.authErrorBanner.style.display = 'none'
+  els.authErrorBanner.textContent = ''
+  if (pendingAuthUsername) {
+    els.authStepEmail.style.display = 'none'
+    els.authStepRegister.style.display = 'block'
+    els.authStepCode.style.display = 'none'
+  } else {
+    els.authStepEmail.style.display = 'block'
+    els.authStepRegister.style.display = 'none'
+    els.authStepCode.style.display = 'none'
+  }
+})
+
+els.btnSendCode.addEventListener('click', () => run(async () => {
+  els.authErrorBanner.style.display = 'none'
+  els.authErrorBanner.textContent = ''
+  const identifier = els.authEmailInput.value.trim()
+  if (!identifier) {
+    els.authErrorBanner.textContent = 'Please enter an email address or username'
+    els.authErrorBanner.style.display = 'block'
+    return
+  }
+
+  try {
+    const lookup = await api<{
+      exists: boolean
+      isEmail: boolean
+      cleanIdentifier: string
+      targetEmail?: string
+      username?: string
+      name?: string
+    }>('POST', 'auth/lookup', {
+      body: { identifier },
+    })
+
+    if (lookup.exists) {
+      // Existing user: send login OTP
+      pendingAuthIdentifier = identifier
+      pendingAuthUsername = undefined
+      pendingAuthName = undefined
+
+      const res = await api<{ ok: boolean; email: string; devCode?: string }>('POST', 'auth/request-code', {
+        body: { identifier, purpose: 'login' },
+      })
+      els.authTargetEmail.textContent = res.email
+      els.authStepEmail.style.display = 'none'
+      els.authStepRegister.style.display = 'none'
+      els.authStepCode.style.display = 'block'
+      if (res.devCode) {
+        els.authDevHelper.textContent = `[Dev mode] Your single-use code is: ${res.devCode}`
+        els.authDevHelper.style.display = 'block'
+        els.authCodeInput.value = res.devCode
+      }
+    } else {
+      // New user: go to registration step to select username & display name
+      els.authStepEmail.style.display = 'none'
+      els.authStepRegister.style.display = 'block'
+      els.authStepCode.style.display = 'none'
+
+      if (lookup.isEmail) {
+        els.regEmailInput.value = lookup.cleanIdentifier
+        els.regEmailInput.disabled = true
+        els.regUsernameInput.value = ''
+        els.regNameInput.value = ''
+        els.regUsernameInput.focus()
+      } else {
+        els.regUsernameInput.value = lookup.cleanIdentifier
+        els.regUsernameInput.disabled = false
+        els.regEmailInput.value = ''
+        els.regEmailInput.disabled = false
+        els.regNameInput.value = ''
+        els.regEmailInput.focus()
+      }
+    }
+  } catch (err) {
+    els.authErrorBanner.textContent = err instanceof Error ? err.message : String(err)
+    els.authErrorBanner.style.display = 'block'
+  }
+}))
+
+els.btnRegisterSendCode.addEventListener('click', () => run(async () => {
+  els.authErrorBanner.style.display = 'none'
+  els.authErrorBanner.textContent = ''
+
+  const email = els.regEmailInput.value.trim()
+  const username = els.regUsernameInput.value.trim().replace(/^@+/, '')
+  const name = els.regNameInput.value.trim() || undefined
+
+  if (!email || !email.includes('@')) {
+    els.authErrorBanner.textContent = 'Please enter a valid email address'
+    els.authErrorBanner.style.display = 'block'
+    return
+  }
+  if (!username || username.length < 2) {
+    els.authErrorBanner.textContent = 'Username must be at least 2 characters long'
+    els.authErrorBanner.style.display = 'block'
+    return
+  }
+
+  try {
+    // 1. Verify username availability
+    const check = await api<{ available: boolean; normalized: string; error?: string }>('POST', 'auth/check-username', {
+      body: { username },
+    })
+    if (!check.available) {
+      els.authErrorBanner.textContent = check.error || `Username "@${username}" is already taken. Please choose another.`
+      els.authErrorBanner.style.display = 'block'
+      return
+    }
+
+    // 2. Request registration OTP code
+    pendingAuthIdentifier = email
+    pendingAuthUsername = username
+    pendingAuthName = name
+
+    const res = await api<{ ok: boolean; email: string; devCode?: string }>('POST', 'auth/request-code', {
+      body: { identifier: email, username, name, purpose: 'login' },
+    })
+
+    els.authTargetEmail.textContent = res.email
+    els.authStepRegister.style.display = 'none'
+    els.authStepCode.style.display = 'block'
+    if (res.devCode) {
+      els.authDevHelper.textContent = `[Dev mode] Your single-use code is: ${res.devCode}`
+      els.authDevHelper.style.display = 'block'
+      els.authCodeInput.value = res.devCode
+    }
+  } catch (err) {
+    els.authErrorBanner.textContent = err instanceof Error ? err.message : String(err)
+    els.authErrorBanner.style.display = 'block'
+  }
+}))
+
+els.btnVerifyCode.addEventListener('click', () => run(async () => {
+  els.authErrorBanner.style.display = 'none'
+  els.authErrorBanner.textContent = ''
+  const code = els.authCodeInput.value.trim()
+  if (!code) {
+    els.authErrorBanner.textContent = 'Please enter the 6-digit verification code'
+    els.authErrorBanner.style.display = 'block'
+    return
+  }
+  try {
+    const res = await api<{ ok: true; token: string; user: UserProfile }>('POST', 'auth/verify-code', {
+      body: {
+        identifier: pendingAuthIdentifier,
+        purpose: 'login',
+        code,
+        username: pendingAuthUsername,
+        name: pendingAuthName,
+      },
+    })
+    if (res.token) {
+      localStorage.setItem('md4lp_token', res.token)
+      els.authModal.close()
+      await refreshAuthUI()
+      setStatus(`✓ Signed in as ${res.user.name} (@${res.user.username})`)
+    }
+  } catch (err) {
+    els.authErrorBanner.textContent = err instanceof Error ? err.message : String(err)
+    els.authErrorBanner.style.display = 'block'
+  }
+}))
+
+els.btnManageAccount.addEventListener('click', () => {
+  renderAccountEmails()
+  els.addEmailInput.value = ''
+  els.accountModal.showModal()
+})
+
+els.btnCloseAccountModal.addEventListener('click', () => els.accountModal.close())
+
+els.btnSaveProfile.addEventListener('click', () => run(async () => {
+  const name = els.accEditName.value.trim() || undefined
+  const username = els.accEditUsername.value.trim() || undefined
+  const avatarUrl = els.accEditAvatar.value.trim() || undefined
+  const res = await api<{ ok: true; user: UserProfile }>('PATCH', 'auth/profile', {
+    body: { name, username, avatarUrl },
+  })
+  if (res.ok) {
+    currentUser = res.user
+    await refreshAuthUI()
+    renderAccountEmails()
+    setStatus('✓ Profile updated successfully')
+  }
+}))
+
+els.btnSendAddCode.addEventListener('click', () => run(async () => {
+  const newEmail = els.addEmailInput.value.trim()
+  if (!newEmail || !newEmail.includes('@')) {
+    alert('Please enter a valid email address')
+    return
+  }
+  const res = await api<{ ok: boolean; devCode?: string }>('POST', 'auth/emails/request-add', {
+    body: { email: newEmail },
+  })
+  await refreshAuthUI()
+  renderAccountEmails()
+  els.addEmailInput.value = ''
+  const safeId = btoa(newEmail).replace(/=/g, '')
+  const box = document.getElementById(`verifyBox_${safeId}`)
+  const helper = document.getElementById(`devHelper_${safeId}`)
+  const input = document.getElementById(`input_${safeId}`) as HTMLInputElement
+  if (box) box.style.display = 'block'
+  if (helper && res.devCode) {
+    helper.textContent = `[Dev code]: ${res.devCode}`
+    helper.style.display = 'block'
+  }
+  if (input && res.devCode) input.value = res.devCode
+  setStatus(`Added ${newEmail} (pending verification). Verification code sent.`)
+}))
+
+els.btnLogout.addEventListener('click', () => run(async () => {
+  await api('POST', 'auth/logout')
+  localStorage.removeItem('md4lp_token')
+  await refreshAuthUI()
+  setStatus('Signed out')
+}))
+
+// ---------- Teams & Organizations UI Logic ----------
+interface Team {
+  id: string
+  name: string
+  type: 'private' | 'domain'
+  domain?: string
+  createdBy: string
+  createdAt: number
+}
+
+interface TeamMember {
+  teamId: string
+  userId: string
+  role: 'admin' | 'member'
+  contextEmail?: string
+  joinedAt: number
+  username: string
+  name: string
+  avatarUrl?: string
+}
+
+interface TeamWithDetails extends Team {
+  members: TeamMember[]
+  memberCount: number
+  currentUserRole?: 'admin' | 'member'
+}
+
+interface TeamInvitation {
+  id: string
+  teamId: string
+  invitedBy: string
+  targetEmail?: string
+  targetUsername?: string
+  role: 'admin' | 'member'
+  status: 'pending' | 'accepted' | 'rejected' | 'expired' | 'revoked'
+  expiresAt: number
+  teamName: string
+  inviterName: string
+}
+
+let currentActiveTeamId: string | null = null
+let expelTargetUserId: string | null = null
+
+async function renderTeamsModal(): Promise<void> {
+  if (!currentUser) return
+  els.teamsErrorBanner.style.display = 'none'
+  els.teamsErrorBanner.textContent = ''
+
+  try {
+    const [overview, invsRes] = await Promise.all([
+      api<{ ok: boolean; joinedTeams: TeamWithDetails[]; availableDomainTeams: Team[] }>('GET', 'teams'),
+      api<{ ok: boolean; invitations: TeamInvitation[] }>('GET', 'teams/invitations/pending'),
+    ])
+
+    // 1. Pending Invitations
+    const invs = invsRes.invitations || []
+    if (invs.length > 0) {
+      els.pendingInvsSection.style.display = 'block'
+      els.pendingInvsList.innerHTML = invs
+        .map((inv) => {
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px;">
+              <div>
+                <b>${escapeHtml(inv.teamName)}</b> (invited by ${escapeHtml(inv.inviterName)} as <i>${inv.role}</i>)
+              </div>
+              <div style="display: flex; gap: 4px;">
+                <button class="primary" onclick="window.acceptTeamInvite('${inv.id}')" style="font-size: 11px; padding: 3px 8px;">Accept</button>
+                <button onclick="window.rejectTeamInvite('${inv.id}')" style="font-size: 11px; padding: 3px 8px;">Reject</button>
+              </div>
+            </div>
+          `
+        })
+        .join('')
+    } else {
+      els.pendingInvsSection.style.display = 'none'
+      els.pendingInvsList.innerHTML = ''
+    }
+
+    // 2. Joined Teams
+    const joined = overview.joinedTeams || []
+    if (joined.length > 0) {
+      els.joinedTeamsList.innerHTML = joined
+        .map((t) => {
+          const typeLabel = t.type === 'domain' ? `🏢 Domain (${escapeHtml(t.domain || '')})` : '🔒 Private'
+          const roleBadge = t.currentUserRole === 'admin' ? '<span class="badge-primary">Admin</span>' : '<span style="font-size: 10px; background: var(--surface); padding: 2px 6px; border-radius: 10px;">Member</span>'
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin-bottom: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px;">
+              <div>
+                <div style="font-weight: 600;">${escapeHtml(t.name)} ${roleBadge}</div>
+                <div style="font-size: 11px; color: var(--muted);">${typeLabel} • ${t.memberCount} member${t.memberCount === 1 ? '' : 's'}</div>
+              </div>
+              <button onclick="window.openTeamDetails('${t.id}')" class="primary" style="font-size: 12px; padding: 4px 10px;">View / Manage</button>
+            </div>
+          `
+        })
+        .join('')
+    } else {
+      els.joinedTeamsList.innerHTML = '<p style="font-size: 12px; color: var(--muted); margin: 6px 0;">You are not a member of any teams yet.</p>'
+    }
+
+    // 3. Available Domain Teams
+    const availDomains = overview.availableDomainTeams || []
+    if (availDomains.length > 0) {
+      els.availDomainTeamsSection.style.display = 'block'
+      els.availDomainTeamsList.innerHTML = availDomains
+        .map((t) => {
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin-bottom: 6px; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 6px; font-size: 13px;">
+              <div>
+                <div style="font-weight: 600; color: #3b82f6;">${escapeHtml(t.name)}</div>
+                <div style="font-size: 11px; color: var(--muted);">Available for your verified @${escapeHtml(t.domain || '')} email</div>
+              </div>
+              <button onclick="window.joinDomainTeam('${t.id}', '${escapeHtml(t.domain || '')}')" class="primary" style="font-size: 12px; padding: 4px 10px;">Join Team</button>
+            </div>
+          `
+        })
+        .join('')
+    } else {
+      els.availDomainTeamsSection.style.display = 'none'
+      els.availDomainTeamsList.innerHTML = ''
+    }
+  } catch (err) {
+    els.teamsErrorBanner.textContent = err instanceof Error ? err.message : String(err)
+    els.teamsErrorBanner.style.display = 'block'
+  }
+}
+
+async function openTeamDetails(teamId: string): Promise<void> {
+  currentActiveTeamId = teamId
+  expelTargetUserId = null
+  els.memberExpelPrompt.style.display = 'none'
+  els.teamDetailErrorBanner.style.display = 'none'
+  els.teamDetailErrorBanner.textContent = ''
+
+  try {
+    const res = await api<{ ok: boolean; team: TeamWithDetails }>('GET', `teams/${teamId}`)
+    const team = res.team
+    els.teamDetailName.textContent = team.name
+    els.teamDetailTypeBadge.textContent = team.type === 'domain' ? `Domain (${team.domain})` : 'Private Team'
+    els.teamDetailMemberCount.textContent = String(team.memberCount)
+
+    // Member list
+    els.teamDetailMemberList.innerHTML = team.members
+      .map((m) => {
+        const isSelf = currentUser && m.userId === currentUser.id
+        const avatar = m.avatarUrl
+          ? `<img src="${escapeHtml(m.avatarUrl)}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" />`
+          : `<div class="user-avatar-large" style="width: 24px; height: 24px; font-size: 11px;">${escapeHtml(m.name[0]?.toUpperCase() || '?')}</div>`
+        const roleBadge = m.role === 'admin' ? '<span class="badge-primary" style="font-size: 9px;">Admin</span>' : ''
+        
+        let actions = ''
+        if (team.type === 'domain' && !isSelf) {
+          actions = `<button onclick="window.promptRemoveMember('${m.userId}', 'domain')" style="font-size: 11px; padding: 2px 6px; color: #e53e3e; border-color: #feb2b2;">Expel</button>`
+        } else if (team.type === 'private' && team.currentUserRole === 'admin' && !isSelf) {
+          actions = `<button onclick="window.promptRemoveMember('${m.userId}', 'private')" style="font-size: 11px; padding: 2px 6px; color: #e53e3e; border-color: #feb2b2;">Remove</button>`
+        }
+
+        return `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              ${avatar}
+              <div>
+                <span style="font-weight: 600;">${escapeHtml(m.name)}</span>
+                <span style="font-size: 11px; color: var(--muted);">(@${escapeHtml(m.username)})</span>
+                ${roleBadge}
+                ${isSelf ? '<span style="font-size: 10px; color: var(--link);">(You)</span>' : ''}
+              </div>
+            </div>
+            <div>${actions}</div>
+          </div>
+        `
+      })
+      .join('')
+
+    // Private team invite section (only for admin)
+    if (team.type === 'private' && team.currentUserRole === 'admin') {
+      els.teamInviteSection.style.display = 'block'
+      els.teamInviteTargetInput.value = ''
+    } else {
+      els.teamInviteSection.style.display = 'none'
+    }
+
+    els.teamDetailsModal.showModal()
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err)
+    alert(msg)
+    els.teamDetailsModal.close()
+    await renderTeamsModal()
+  }
+}
+
+let expelTeamType: 'private' | 'domain' = 'private'
+
+// Global window helpers for inline onclick handlers in modal HTML
+declare global {
+  interface Window {
+    openTeamDetails: (teamId: string) => Promise<void>
+    joinDomainTeam: (teamId: string, domain: string) => Promise<void>
+    acceptTeamInvite: (invitationId: string) => Promise<void>
+    rejectTeamInvite: (invitationId: string) => Promise<void>
+    promptRemoveMember: (targetUserId: string, type: 'private' | 'domain') => Promise<void>
+  }
+}
+
+window.openTeamDetails = (teamId: string) => openTeamDetails(teamId)
+
+window.promptRemoveMember = async (targetUserId: string, type: 'private' | 'domain') => {
+  if (!currentUser || !currentActiveTeamId) return
+  expelTargetUserId = targetUserId
+  expelTeamType = type
+  els.memberExpelPrompt.style.display = 'block'
+  els.memberExpelDevHelper.style.display = 'none'
+  els.memberExpelCodeInput.value = ''
+  els.memberExpelTargetEmail.textContent = currentUser.defaultEmail
+
+  const purpose = type === 'domain' ? 'domain_team_expel' : 'remove_team_member'
+  try {
+    const res = await api<{ ok: boolean; email: string; devCode?: string }>('POST', 'auth/request-code', {
+      body: { identifier: currentUser.defaultEmail, purpose },
+    })
+    if (res.devCode) {
+      els.memberExpelDevHelper.textContent = `[Dev mode OTP code]: ${res.devCode}`
+      els.memberExpelDevHelper.style.display = 'block'
+      els.memberExpelCodeInput.value = res.devCode
+    }
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}
+
+window.joinDomainTeam = async (teamId: string, domain: string) => {
+  if (!currentUser) return
+  const matchedEmail = currentUser.emails.find(
+    (e) => e.verifiedAt !== null && e.email.toLowerCase().endsWith(`@${domain.toLowerCase()}`),
+  )
+  if (!matchedEmail) {
+    alert(`No verified email matching domain @${domain} found in your account.`)
+    return
+  }
+  try {
+    await api('POST', 'teams/join-domain', {
+      body: { teamId, contextEmail: matchedEmail.email },
+    })
+    setStatus(`✓ Joined ${domain} domain team!`)
+    await renderTeamsModal()
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}
+
+window.acceptTeamInvite = async (invitationId: string) => {
+  if (!currentUser) return
+  try {
+    await api('POST', `teams/invitations/${invitationId}/accept`, {
+      body: { contextEmail: currentUser.defaultEmail },
+    })
+    setStatus('✓ Accepted team invitation!')
+    await renderTeamsModal()
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}
+
+window.rejectTeamInvite = async (invitationId: string) => {
+  try {
+    await api('POST', `teams/invitations/${invitationId}/reject`)
+    setStatus('Invitation rejected')
+    await renderTeamsModal()
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}
+
+els.btnTeams.addEventListener('click', () => {
+  renderTeamsModal()
+  els.newTeamNameInput.value = ''
+  els.teamsModal.showModal()
+})
+
+els.btnCloseTeamsModal.addEventListener('click', () => els.teamsModal.close())
+els.btnCloseTeamDetailsModal.addEventListener('click', () => {
+  els.teamDetailsModal.close()
+  renderTeamsModal()
+})
+
+els.btnCreateTeam.addEventListener('click', () => run(async () => {
+  const name = els.newTeamNameInput.value.trim()
+  if (!name) {
+    alert('Please enter a team name')
+    return
+  }
+  try {
+    await api('POST', 'teams', { body: { name } })
+    els.newTeamNameInput.value = ''
+    setStatus(`✓ Created private team "${name}"`)
+    await renderTeamsModal()
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}))
+
+els.btnSendTeamInvite.addEventListener('click', () => run(async () => {
+  if (!currentActiveTeamId) return
+  const target = els.teamInviteTargetInput.value.trim()
+  const role = els.teamInviteRoleSelect.value as 'admin' | 'member'
+  if (!target) {
+    alert('Please enter a username (@handle) or email')
+    return
+  }
+  try {
+    await api('POST', `teams/${currentActiveTeamId}/invite`, {
+      body: { target, role },
+    })
+    els.teamInviteTargetInput.value = ''
+    setStatus(`✓ Invitation sent to ${target}`)
+    await openTeamDetails(currentActiveTeamId)
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}))
+
+els.btnConfirmMemberExpel.addEventListener('click', () => run(async () => {
+  if (!currentActiveTeamId || !expelTargetUserId) return
+  const code = els.memberExpelCodeInput.value.trim()
+  if (!code) {
+    alert('Please enter the 6-digit verification code')
+    return
+  }
+  try {
+    if (expelTeamType === 'domain') {
+      await api('POST', `teams/${currentActiveTeamId}/expel-domain`, {
+        body: { targetUserId: expelTargetUserId, reverificationCode: code },
+      })
+      setStatus('✓ Member expelled from domain team')
+    } else {
+      await api('POST', `teams/${currentActiveTeamId}/members/remove`, {
+        body: { targetUserId: expelTargetUserId, reverificationCode: code },
+      })
+      setStatus('✓ Member removed from private team')
+    }
+    els.memberExpelPrompt.style.display = 'none'
+    expelTargetUserId = null
+    await openTeamDetails(currentActiveTeamId)
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}))
+
+els.btnCancelMemberExpel.addEventListener('click', () => {
+  els.memberExpelPrompt.style.display = 'none'
+  expelTargetUserId = null
+})
+
+els.btnLeaveTeam.addEventListener('click', () => run(async () => {
+  if (!currentActiveTeamId) return
+  if (!confirm('Are you sure you want to leave this team?')) return
+  try {
+    await api('POST', `teams/${currentActiveTeamId}/leave`)
+    setStatus('You left the team')
+    els.teamDetailsModal.close()
+    await renderTeamsModal()
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}))
+
+run(async () => {
+  await refreshAuthUI()
+  await boot()
+})
+
+

@@ -209,4 +209,108 @@ describe('@md4lp/server HTTP', () => {
     expect(dec.decode((await reader.read()).value)).toContain('"type":"comments"')
     await reader.cancel()
   })
+
+  // ---- Auth & Multi-Email HTTP Endpoints ----
+
+  describe('Auth & Multi-Email HTTP Endpoints', () => {
+    it('full flow: request code → verify code → get session → manage emails → logout', async () => {
+      const api = createApi(mkdtempSync(join(tmpdir(), 'md4lp-auth-')), DEFAULT_CONFIG)
+      const app = createHttpApp(api)
+
+      // 1. Request verification code
+      const reqRes = await post(app, '/api/auth/request-code', { email: 'helen@example.com', purpose: 'login', name: 'Helen' })
+      expect(reqRes.status).toBe(200)
+
+      // 2. Read code from dev outbox
+      const outboxRes = await app.request('/api/dev/outbox?to=helen@example.com')
+      expect(outboxRes.status).toBe(200)
+      const outboxData = await json(outboxRes)
+      expect(outboxData.emails).toHaveLength(1)
+      const code = outboxData.emails[0].code
+      expect(code).toBeDefined()
+
+      // 3. Verify code and obtain session token
+      const verifyRes = await post(app, '/api/auth/verify-code', { email: 'helen@example.com', purpose: 'login', code })
+      expect(verifyRes.status).toBe(200)
+      const verifyData = await json(verifyRes)
+      expect(verifyData.ok).toBe(true)
+      expect(verifyData.token).toBeDefined()
+      expect(verifyData.user.name).toBe('Helen')
+      expect(verifyData.user.defaultEmail).toBe('helen@example.com')
+
+      const token = verifyData.token
+
+      // 4. GET /api/auth/me with Bearer token
+      const meRes = await app.request('/api/auth/me', {
+        headers: { authorization: `Bearer ${token}` },
+      })
+      expect(meRes.status).toBe(200)
+      const meData = await json(meRes)
+      expect(meData.user.id).toBe(verifyData.user.id)
+      expect(meData.user.emails).toHaveLength(1)
+
+      // 5. Request adding secondary email
+      const addReqRes = await app.request('/api/auth/emails/request-add', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ email: 'helen.work@corp.com' }),
+      })
+      expect(addReqRes.status).toBe(200)
+
+      const secCode = (await api.auth.outbox.getLatestCode('helen.work@corp.com', 'add_email'))!
+      expect(secCode).toBeDefined()
+
+      // 6. Verify secondary email
+      const addVerifyRes = await app.request('/api/auth/emails/verify-add', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ email: 'helen.work@corp.com', code: secCode }),
+      })
+      expect(addVerifyRes.status).toBe(200)
+      const addVerifyData = await json(addVerifyRes)
+      expect(addVerifyData.user.emails).toHaveLength(2)
+
+      // 7. Change primary email
+      const setPrimaryRes = await app.request('/api/auth/emails/primary', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ email: 'helen.work@corp.com' }),
+      })
+      expect(setPrimaryRes.status).toBe(200)
+
+      // 8. Delete previous primary email (now secondary)
+      const delEmailRes = await app.request('/api/auth/emails', {
+        method: 'DELETE',
+        headers: {
+          authorization: `Bearer ${token}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({ email: 'helen@example.com' }),
+      })
+      expect(delEmailRes.status).toBe(200)
+
+      // 9. Logout
+      const logoutRes = await app.request('/api/auth/logout', {
+        method: 'POST',
+        headers: { authorization: `Bearer ${token}` },
+      })
+      expect(logoutRes.status).toBe(200)
+
+      // 10. GET /api/auth/me after logout should return 401
+      const meAfterLogout = await app.request('/api/auth/me', {
+        headers: { authorization: `Bearer ${token}` },
+      })
+      expect(meAfterLogout.status).toBe(401)
+    })
+  })
 })
+

@@ -7,6 +7,9 @@ import { canonicalize } from '@md4lp/canonicalizer'
 import { z } from 'zod'
 import { type Config, DEFAULT_CONFIG } from './config'
 import { resolveCaller } from './identity'
+import { AuthService } from './auth'
+import { TeamService } from './teams/service'
+import { MemoryTeamStore } from './teams/store'
 import * as schemas from './schemas'
 const SAMPLE: Record<string, string> = {
   'welcome.md': [
@@ -89,10 +92,26 @@ export interface Md4lpEvent {
 
 export type EventListener = (e: Md4lpEvent) => void
 
+export interface AuthContext {
+  token?: string
+  userId?: string
+  email?: string
+  name?: string
+}
+
 export interface Api {
-  handle(method: string, pathname: string, query: URLSearchParams, body: unknown, user: string): Promise<ApiResponse>
+  handle(
+    method: string,
+    pathname: string,
+    query: URLSearchParams,
+    body: unknown,
+    user: string,
+    authContext?: AuthContext,
+  ): Promise<ApiResponse>
   /** Subscribe to live events (SSE backing). Returns an unsubscribe function. */
   subscribe(listener: EventListener): () => void
+  auth: AuthService
+  teams: TeamService
 }
 
 /** Minimal in-process pub/sub — the single serialization point already lives in @md4lp/repo (D18). */
@@ -115,7 +134,12 @@ function createEventBus(): { emit: EventListener; subscribe: Api['subscribe'] } 
   }
 }
 
-export function createApi(repoDir: string, config: Config = DEFAULT_CONFIG): Api {
+export function createApi(
+  repoDir: string,
+  config: Config = DEFAULT_CONFIG,
+  auth: AuthService = new AuthService(),
+  teams: TeamService = new TeamService(new MemoryTeamStore(), auth),
+): Api {
   let cached: Promise<{ repo: RepoBackend; store: CommentStore }> | null = null
   const bus = createEventBus()
 
@@ -157,7 +181,14 @@ export function createApi(repoDir: string, config: Config = DEFAULT_CONFIG): Api
     await repo.writeFiles('main', [{ path, content }], `edit ${path}`, author)
   }
 
-  const handle = async (method: string, pathname: string, query: URLSearchParams, body: unknown, user: string): Promise<ApiResponse> => {
+  const handle = async (
+    method: string,
+    pathname: string,
+    query: URLSearchParams,
+    body: unknown,
+    user: string,
+    authContext?: AuthContext,
+  ): Promise<ApiResponse> => {
     const { repo, store } = await ready()
     const { role, author } = resolveCaller(user, config)
     const path = query.get('path') ?? (isRecord(body) ? String(body.path ?? '') : '')
@@ -295,8 +326,182 @@ export function createApi(repoDir: string, config: Config = DEFAULT_CONFIG): Api
           emit({ type: 'comments', file: path })
           return ok({ rejected: true })
         }
-        default:
+        case 'POST /api/auth/lookup': {
+          const b = schemas.lookupIdentifierBody.parse(body)
+          const res = await auth.lookupIdentifier(b.identifier)
+          return ok(res)
+        }
+        case 'POST /api/auth/check-username': {
+          const b = schemas.checkUsernameBody.parse(body)
+          const res = await auth.checkUsernameAvailability(b.username)
+          return ok(res)
+        }
+        case 'POST /api/auth/request-code': {
+          const b = schemas.requestCodeBody.parse(body)
+          const res = await auth.requestCode({
+            identifier: b.identifier,
+            purpose: b.purpose,
+            name: b.name,
+            username: b.username,
+            metadata: b.metadata,
+          })
+          return ok(res)
+        }
+        case 'POST /api/auth/verify-code': {
+          const b = schemas.verifyCodeBody.parse(body)
+          const res = await auth.verifyCodeAndLogin({
+            identifier: b.identifier,
+            purpose: b.purpose,
+            code: b.code,
+            name: b.name,
+            username: b.username,
+          })
+          if (!res.ok) return badRequest(res.error, { attemptsLeft: res.attemptsLeft })
+          if (res.user.defaultEmail) {
+            await teams.ensureDomainTeamForEmail(res.user.defaultEmail)
+          }
+          return ok(res)
+        }
+        case 'GET /api/auth/me': {
+          if (!authContext?.userId) return unauthorized('authentication required')
+          const profile = await auth.getUserProfile(authContext.userId)
+          if (!profile) return unauthorized('user not found')
+          return ok({ ok: true, user: profile, currentEmail: authContext.email })
+        }
+        case 'PATCH /api/auth/profile': {
+          if (!authContext?.userId) return unauthorized('authentication required')
+          const b = schemas.updateProfileBody.parse(body)
+          const res = await auth.updateProfile(authContext.userId, b)
+          if (!res.ok) return badRequest(res.error)
+          return ok(res)
+        }
+        case 'POST /api/auth/emails/request-add': {
+          if (!authContext?.userId) return unauthorized('authentication required')
+          const b = schemas.emailOnlyBody.parse(body)
+          const res = await auth.requestAddEmail({ userId: authContext.userId, newEmail: b.email })
+          return ok(res)
+        }
+        case 'POST /api/auth/emails/verify-add': {
+          if (!authContext?.userId) return unauthorized('authentication required')
+          const b = schemas.verifyAddEmailBody.parse(body)
+          const res = await auth.verifyAddEmail({ userId: authContext.userId, newEmail: b.email, code: b.code })
+          if (!res.ok) return badRequest(res.error, { attemptsLeft: res.attemptsLeft })
+          await teams.ensureDomainTeamForEmail(b.email)
+          return ok(res)
+        }
+        case 'POST /api/auth/emails/primary': {
+          if (!authContext?.userId) return unauthorized('authentication required')
+          const b = schemas.emailOnlyBody.parse(body)
+          const res = await auth.setPrimaryEmail(authContext.userId, b.email)
+          if (!res.ok) return badRequest(res.error)
+          return ok(res)
+        }
+        case 'DELETE /api/auth/emails': {
+          if (!authContext?.userId) return unauthorized('authentication required')
+          const b = schemas.emailOnlyBody.parse(body)
+          const res = await auth.removeEmail(authContext.userId, b.email)
+          if (!res.ok) return badRequest(res.error)
+          return ok(res)
+        }
+        case 'POST /api/auth/logout': {
+          if (authContext?.token) {
+            await auth.logout(authContext.token)
+          }
+          return ok({ ok: true })
+        }
+        case 'GET /api/teams': {
+          if (!authContext?.userId) return unauthorized('authentication required')
+          const res = await teams.listTeamsOverviewForUser(authContext.userId)
+          return ok({ ok: true, ...res })
+        }
+        case 'POST /api/teams': {
+          if (!authContext?.userId) return unauthorized('authentication required')
+          const b = schemas.createTeamBody.parse(body)
+          const team = await teams.createPrivateTeam(authContext.userId, b.name)
+          return ok({ ok: true, team })
+        }
+        case 'POST /api/teams/join-domain': {
+          if (!authContext?.userId) return unauthorized('authentication required')
+          const b = schemas.joinDomainTeamBody.parse(body)
+          const team = await teams.joinDomainTeam(authContext.userId, b.teamId, b.contextEmail)
+          return ok({ ok: true, team })
+        }
+        case 'GET /api/teams/invitations/pending': {
+          if (!authContext?.userId) return unauthorized('authentication required')
+          const invitations = await teams.listPendingInvitationsForUser(authContext.userId)
+          return ok({ ok: true, invitations })
+        }
+        case 'GET /api/dev/outbox': {
+          const to = query.get('to') ?? undefined
+          const emails = await auth.outbox.getEmails(to)
+          return ok({ ok: true, emails })
+        }
+        case 'POST /api/dev/outbox/clear': {
+          await auth.outbox.clear()
+          return ok({ ok: true })
+        }
+        default: {
+          // Dynamic team routes
+          if (pathname.startsWith('/api/teams/invitations/')) {
+            const parts = pathname.split('/')
+            const invId = parts[4]
+            if (!invId) return badRequest('invitation id required')
+
+            if (method === 'POST' && parts[5] === 'accept') {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const b = schemas.acceptTeamInvitationBody.parse(body ?? {})
+              const res = await teams.acceptInvitation(authContext.userId, invId, b.contextEmail)
+              return ok(res)
+            }
+            if (method === 'POST' && parts[5] === 'reject') {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const res = await teams.rejectInvitation(authContext.userId, invId)
+              return ok(res)
+            }
+            if (method === 'DELETE' && !parts[5]) {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const res = await teams.revokeInvitation(authContext.userId, invId)
+              return ok(res)
+            }
+          }
+
+          if (pathname.startsWith('/api/teams/')) {
+            const parts = pathname.split('/')
+            const teamId = parts[3]
+            if (!teamId) return badRequest('team id required')
+
+            if (method === 'GET' && !parts[4]) {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const res = await teams.getTeamDetails(teamId, authContext.userId)
+              return ok({ ok: true, team: res })
+            }
+            if (method === 'POST' && parts[4] === 'invite') {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const b = schemas.inviteTeamMemberBody.parse(body)
+              const invitation = await teams.inviteToTeam(authContext.userId, teamId, { target: b.target, role: b.role })
+              return ok({ ok: true, invitation })
+            }
+            if (method === 'POST' && parts[4] === 'leave') {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const res = await teams.leaveTeam(authContext.userId, teamId)
+              return ok(res)
+            }
+            if (method === 'POST' && parts[4] === 'members' && parts[5] === 'remove') {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const b = schemas.removeTeamMemberBody.parse(body)
+              const res = await teams.removeMemberFromPrivateTeam(authContext.userId, b.targetUserId, teamId, b.reverificationCode)
+              return ok(res)
+            }
+            if (method === 'POST' && parts[4] === 'expel-domain') {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const b = schemas.expelDomainMemberBody.parse(body)
+              const res = await teams.expelMemberFromDomainTeam(authContext.userId, b.targetUserId, teamId, b.reverificationCode)
+              return ok(res)
+            }
+          }
+
           return { status: 404, json: { error: `no route ${key}` } }
+        }
       }
     } catch (err) {
       // Invalid request body → 400 (was an unchecked cast → 500/crash before D2).
@@ -305,7 +510,7 @@ export function createApi(repoDir: string, config: Config = DEFAULT_CONFIG): Api
     }
   }
 
-  return { handle, subscribe: bus.subscribe }
+  return { handle, subscribe: bus.subscribe, auth, teams }
 }
 
 async function init(repoDir: string, config: Config): Promise<{ repo: RepoBackend; store: CommentStore }> {
@@ -327,6 +532,8 @@ const editBranch = (path: string): string => `edit/${path}`
 /** A user's comment-sidecar branch (D17 model A); decoupled from editing in D20. */
 const commentsBranch = (user: string): string => `comments/${user}`
 const ok = (json: unknown): ApiResponse => ({ status: 200, json })
+const badRequest = (error: string, extra?: Record<string, unknown>): ApiResponse => ({ status: 400, json: { error, ...extra } })
+const unauthorized = (error: string): ApiResponse => ({ status: 401, json: { error } })
 const forbidden = (error: string): ApiResponse => ({ status: 403, json: { error } })
 const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null
 const isDocFile = (f: string): boolean => f.endsWith('.md') && !f.startsWith('.md4lp/')
