@@ -6,6 +6,9 @@
   "description": "Standalone HTTP API (+ MCP) over the md4lp repo: the single repo owner; web and AI agents are clients.",
   "license": "Apache-2.0",
   "main": "src/index.ts",
+  "bin": {
+    "md4lp": "./bin/md4lp.mjs"
+  },
   "exports": {
     ".": "./src/index.ts"
   },

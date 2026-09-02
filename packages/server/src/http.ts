@@ -54,16 +54,32 @@ export function createHttpApp(api: Api): Hono {
     let user = url.searchParams.get('user') ?? c.req.header('x-md4lp-user')
 
     if (sessionToken) {
-      const authResult = await api.auth.authenticateToken(sessionToken)
-      if (authResult) {
-        authContext = {
-          token: sessionToken,
-          userId: authResult.user.id,
-          email: authResult.currentEmail,
-          name: authResult.user.name,
+      if (sessionToken.startsWith('md4lp_agt_')) {
+        const agentResult = await api.auth.validateAgentToken(sessionToken)
+        if (agentResult) {
+          authContext = {
+            token: sessionToken,
+            userId: agentResult.user.id,
+            email: agentResult.user.defaultEmail,
+            name: `${agentResult.user.name} (via ${agentResult.session.agentName})`,
+            agentSession: agentResult.session,
+          }
+          if (!user) {
+            user = agentResult.user.username || agentResult.user.name || agentResult.user.id
+          }
         }
-        if (!user) {
-          user = authResult.user.name || authResult.user.defaultEmail || authResult.user.id
+      } else {
+        const authResult = await api.auth.authenticateToken(sessionToken)
+        if (authResult) {
+          authContext = {
+            token: sessionToken,
+            userId: authResult.user.id,
+            email: authResult.currentEmail,
+            name: authResult.user.name,
+          }
+          if (!user) {
+            user = authResult.user.name || authResult.user.defaultEmail || authResult.user.id
+          }
         }
       }
     }

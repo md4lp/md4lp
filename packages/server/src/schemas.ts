@@ -142,4 +142,59 @@ export const removeTeamMemberBody = z.object({
   reverificationCode: z.string().min(1),
 })
 
+export const createProjectBody = z.object({
+  name: z.string().min(1),
+  slug: z.string().optional(),
+  description: z.string().optional(),
+  contextEmail: z.string().email().optional(),
+  initialReadme: z.string().optional(),
+})
+
+export const inviteProjectMemberBody = z.object({
+  target: z.string().min(1),
+  role: z.enum(['owner', 'editor', 'commenter', 'viewer']).optional(),
+})
+
+export const acceptProjectInvitationBody = z.object({
+  contextEmail: z.string().email().optional(),
+})
+
+export const assignProjectTeamBody = z.object({
+  teamId: z.string().min(1),
+  role: z.enum(['owner', 'editor', 'commenter', 'viewer']).optional(),
+})
+
+export const removeProjectMemberBody = z.object({
+  targetUserId: z.string().min(1),
+  reverificationCode: z.string().min(1),
+})
+
+export const updateProjectContextEmailBody = z.object({
+  contextEmail: z.string().email(),
+})
+
+export const createAgentGrantBody = z.object({
+  agentName: z.string().min(1, 'Agent name is required'),
+  description: z.string().optional(),
+  codeChallenge: z.string().min(1, 'PKCE code challenge is required'),
+  projectScopes: z.array(
+    z.object({
+      projectId: z.string().min(1),
+      maxRole: z.enum(['editor', 'commenter', 'viewer']),
+    }),
+  ),
+})
+
+export const exchangeAgentTokenBody = z.object({
+  code: z.string().min(1, 'Authorization code is required'),
+  codeVerifier: z.string().optional(),
+  code_verifier: z.string().optional(),
+}).transform((data) => ({
+  code: data.code,
+  codeVerifier: data.codeVerifier || data.code_verifier || '',
+})).refine((data) => data.codeVerifier.length > 0, {
+  message: 'PKCE code verifier is required',
+})
+
+
 

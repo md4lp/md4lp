@@ -20,6 +20,7 @@ export interface TeamStore {
   ): Promise<TeamInvitation>
   getInvitation(invitationId: string): Promise<TeamInvitation | null>
   updateInvitationStatus(invitationId: string, status: TeamInvitationStatus): Promise<void>
+  updateInvitationRole(invitationId: string, role: TeamRole): Promise<void>
   listPendingInvitationsForUser(emails: string[], username: string): Promise<TeamInvitation[]>
   listInvitationsForTeam(teamId: string): Promise<TeamInvitation[]>
 }
@@ -174,6 +175,13 @@ export class MemoryTeamStore implements TeamStore {
     if (inv) {
       inv.status = status
       inv.resolvedAt = Date.now()
+    }
+  }
+
+  async updateInvitationRole(invitationId: string, role: TeamRole): Promise<void> {
+    const inv = this.invitations.get(invitationId)
+    if (inv) {
+      inv.role = role
     }
   }
 

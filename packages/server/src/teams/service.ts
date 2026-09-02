@@ -34,6 +34,15 @@ export function isPublicDomain(domain: string): boolean {
   return PUBLIC_EMAIL_DOMAINS.has(domain.trim().toLowerCase())
 }
 
+const TEAM_ROLE_WEIGHT: Record<TeamRole, number> = {
+  admin: 2,
+  member: 1,
+}
+
+export function higherTeamRole(a: TeamRole, b: TeamRole): TeamRole {
+  return (TEAM_ROLE_WEIGHT[a] ?? 0) >= (TEAM_ROLE_WEIGHT[b] ?? 0) ? a : b
+}
+
 export class TeamService {
   constructor(
     public readonly store: TeamStore = new MemoryTeamStore(),
@@ -163,12 +172,114 @@ export class TeamService {
     }
 
     const role: TeamRole = options.role ?? 'member'
+
+    // Check if target user is already a member of this team
+    let existingMemberId: string | undefined
+    if (targetUsername) {
+      const existingUser = await this.auth.store.getUserByUsername(targetUsername)
+      if (existingUser && rawMembers.some((m) => m.userId === existingUser.id)) {
+        existingMemberId = existingUser.id
+      }
+    }
+    if (targetEmail) {
+      const existingEmail = await this.auth.store.getUserByEmail(targetEmail)
+      if (existingEmail && rawMembers.some((m) => m.userId === existingEmail.user.id)) {
+        existingMemberId = existingEmail.user.id
+      }
+    }
+
+    if (existingMemberId) {
+      const existingMember = rawMembers.find((m) => m.userId === existingMemberId)!
+      if (TEAM_ROLE_WEIGHT[role] > TEAM_ROLE_WEIGHT[existingMember.role]) {
+        await this.store.updateMemberRole(teamId, existingMemberId, role)
+        // Return synthetic invitation record for the upgrade
+        return {
+          id: `upgrade-${Date.now()}`,
+          teamId,
+          invitedBy: actorUserId,
+          targetEmail,
+          targetUsername,
+          role,
+          status: 'accepted',
+          expiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000,
+          createdAt: Date.now(),
+        }
+      }
+      throw new Error(`User is already a member of this team with role ${existingMember.role}`)
+    }
+
+    // Check if an existing active pending invitation exists for this team and target
+    const existingTeamInvs = await this.store.listInvitationsForTeam(teamId)
+    const existingInv = existingTeamInvs.find(
+      (i) =>
+        i.status === 'pending' &&
+        ((targetEmail && i.targetEmail === targetEmail) ||
+          (targetUsername && i.targetUsername === targetUsername)),
+    )
+
+    if (existingInv) {
+      if (TEAM_ROLE_WEIGHT[role] > TEAM_ROLE_WEIGHT[existingInv.role]) {
+        await this.store.updateInvitationRole(existingInv.id, role)
+        existingInv.role = role
+      }
+      // Re-send notification if invited by email
+      if (targetEmail) {
+        const actor = await this.auth.store.getUser(actorUserId)
+        const inviterName = actor?.name || actor?.username || 'A team member'
+        const appUrl = (process.env.MD4LP_APP_URL || 'http://localhost:5173').replace(/\/+$/, '')
+        const pendingUrl = `${appUrl}/#pending`
+        await this.auth.outbox.sendNotificationEmail(
+          targetEmail,
+          `You've been invited to join team "${team.name}" on md4lp`,
+          [
+            `Hello,`,
+            ``,
+            `${inviterName} has invited you to collaborate in the team "${team.name}" as ${existingInv.role}.`,
+            ``,
+            `To view and accept your invitation:`,
+            `1. Open md4lp at: ${pendingUrl}`,
+            `2. Sign in or create an account with this email address (${targetEmail}).`,
+            `3. Your invitation to "${team.name}" will be ready to accept immediately.`,
+            ``,
+            `— md4lp team`,
+          ].join('\n'),
+          'team_invitation',
+        )
+      }
+      return existingInv
+    }
+
     const invitation = await this.store.createInvitation(
       teamId,
       actorUserId,
       role,
       { email: targetEmail, username: targetUsername },
     )
+
+    // If invited by email, send an invitation notification to outbox with registration CTA
+    if (targetEmail) {
+      const actor = await this.auth.store.getUser(actorUserId)
+      const inviterName = actor?.name || actor?.username || 'A team member'
+      const appUrl = (process.env.MD4LP_APP_URL || 'http://localhost:5173').replace(/\/+$/, '')
+      const pendingUrl = `${appUrl}/#pending`
+      await this.auth.outbox.sendNotificationEmail(
+        targetEmail,
+        `You've been invited to join team "${team.name}" on md4lp`,
+        [
+          `Hello,`,
+          ``,
+          `${inviterName} has invited you to collaborate in the team "${team.name}" as ${role}.`,
+          ``,
+          `To view and accept your invitation:`,
+          `1. Open md4lp at: ${pendingUrl}`,
+          `2. Sign in or create an account with this email address (${targetEmail}).`,
+          `3. Your invitation to "${team.name}" will be ready to accept immediately.`,
+          ``,
+          `— md4lp team`,
+        ].join('\n'),
+        'team_invitation',
+      )
+    }
 
     return invitation
   }
@@ -193,12 +304,24 @@ export class TeamService {
     const userEmails = await this.auth.store.getUserEmails(userId)
     const verifiedEmails = userEmails.filter((e) => e.verifiedAt !== null).map((e) => e.email)
 
+    // Find all pending invitations to this team for this user and determine the highest privilege role
+    const allUserInvs = await this.store.listPendingInvitationsForUser(verifiedEmails, user.username)
+    const teamInvs = allUserInvs.filter((i) => i.teamId === inv.teamId)
+    const effectiveRole = teamInvs.reduce((max, cur) => higherTeamRole(max, cur.role), inv.role)
+
     const selectedEmail = contextEmail
       ? contextEmail.trim().toLowerCase()
       : inv.targetEmail ?? user.defaultEmail
 
-    await this.store.addMember(inv.teamId, userId, inv.role, selectedEmail)
+    await this.store.addMember(inv.teamId, userId, effectiveRole, selectedEmail)
     await this.store.updateInvitationStatus(invitationId, 'accepted')
+
+    // Auto-resolve any redundant pending invitations to this same team for this user
+    for (const otherInv of teamInvs) {
+      if (otherInv.id !== invitationId) {
+        await this.store.updateInvitationStatus(otherInv.id, 'accepted')
+      }
+    }
 
     const details = await this.getTeamDetails(inv.teamId, userId)
     return { ok: true, team: details }
@@ -215,6 +338,19 @@ export class TeamService {
     assertCan(ability, 'reject', { ...inv, __type: 'TeamInvitation' }, 'Access denied: you are not the recipient of this invitation')
 
     await this.store.updateInvitationStatus(invitationId, 'rejected')
+
+    // Auto-resolve any redundant pending invitations to this same team for this user
+    const user = await this.auth.getUserProfile(userId)
+    if (user) {
+      const verifiedEmails = user.emails.filter((e) => e.verifiedAt !== null).map((e) => e.email)
+      const allUserInvs = await this.store.listPendingInvitationsForUser(verifiedEmails, user.username)
+      for (const otherInv of allUserInvs) {
+        if (otherInv.teamId === inv.teamId && otherInv.id !== invitationId) {
+          await this.store.updateInvitationStatus(otherInv.id, 'rejected')
+        }
+      }
+    }
+
     return { ok: true }
   }
 
@@ -305,8 +441,17 @@ export class TeamService {
     const emails = user.emails.filter((e) => e.verifiedAt !== null).map((e) => e.email)
     const rawInvs = await this.store.listPendingInvitationsForUser(emails, user.username)
 
-    const result: Array<TeamInvitation & { teamName: string; inviterName: string }> = []
+    // Group by teamId and select the highest role priority (admin > member)
+    const invsByTeam = new Map<string, TeamInvitation>()
     for (const inv of rawInvs) {
+      const prev = invsByTeam.get(inv.teamId)
+      if (!prev || (TEAM_ROLE_WEIGHT[inv.role] ?? 0) > (TEAM_ROLE_WEIGHT[prev.role] ?? 0)) {
+        invsByTeam.set(inv.teamId, inv)
+      }
+    }
+
+    const result: Array<TeamInvitation & { teamName: string; inviterName: string }> = []
+    for (const inv of invsByTeam.values()) {
       const team = await this.store.getTeam(inv.teamId)
       const inviter = await this.auth.store.getUser(inv.invitedBy)
       result.push({
@@ -350,11 +495,29 @@ export class TeamService {
       })
     }
 
+    // Resolve pending invitations for the team if user is admin or member
+    let pendingInvitations: TeamInvitation[] | undefined
+    if (currentUserId && (currentMember?.role === 'admin' || team.createdBy === currentUserId || rawMembers.some((m) => m.userId === currentUserId))) {
+      const rawInvs = await this.store.listInvitationsForTeam(teamId)
+      const list: TeamInvitation[] = []
+      for (const inv of rawInvs) {
+        if (inv.status === 'pending') {
+          const inviter = await this.auth.store.getUser(inv.invitedBy)
+          list.push({
+            ...inv,
+            inviterName: inviter?.name ?? inviter?.username ?? 'Unknown User',
+          })
+        }
+      }
+      pendingInvitations = list
+    }
+
     return {
       ...team,
       members: membersWithUser,
       memberCount: membersWithUser.length,
       currentUserRole: currentMember?.role,
+      pendingInvitations,
     }
   }
 

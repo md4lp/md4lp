@@ -67,12 +67,49 @@ export function defineAbilityForUser(user?: UserProfile): AppAbility {
     can('reject', 'TeamInvitation', { status: 'pending', targetEmail: { $in: verifiedEmails } })
   }
 
+  // 4. Project permissions
+  can('create', 'Project')
+
+  // Read project: direct member or assigned team
+  can('read', 'Project', { 'members.userId': user.id })
+
+  // Manage project (settings, invite, add/remove teams, remove members): owner
+  can('manage', 'Project', {
+    members: { $elemMatch: { userId: user.id, role: 'owner' } },
+  })
+
+  // Write/Edit documents in project: owner or editor
+  can('write', 'Project', {
+    members: { $elemMatch: { userId: user.id, role: { $in: ['owner', 'editor'] } } },
+  })
+
+  // Comment in project: owner, editor or commenter
+  can('comment', 'Project', {
+    members: { $elemMatch: { userId: user.id, role: { $in: ['owner', 'editor', 'commenter'] } } },
+  })
+
+  // Leave project: any active member (not sole owner)
+  can('leave', 'Project', {
+    'members.userId': user.id,
+  })
+
+  // Project Invitations
+  can('accept', 'ProjectInvitation', { status: 'pending', targetUsername: user.username })
+  can('reject', 'ProjectInvitation', { status: 'pending', targetUsername: user.username })
+  if (verifiedEmails.length > 0) {
+    can('accept', 'ProjectInvitation', { status: 'pending', targetEmail: { $in: verifiedEmails } })
+    can('reject', 'ProjectInvitation', { status: 'pending', targetEmail: { $in: verifiedEmails } })
+  }
+
   return build({
     detectSubjectType: (item: any) => {
       if (typeof item === 'string') return item as any
       if (item && typeof item === 'object') {
         if ('__type' in item) return item.__type
+        if ('projectId' in item && ('targetUsername' in item || 'invitedBy' in item)) return 'ProjectInvitation'
+        if ('teamId' in item && ('targetUsername' in item || 'invitedBy' in item)) return 'TeamInvitation'
         if ('targetUsername' in item || 'invitedBy' in item) return 'TeamInvitation'
+        if ('slug' in item && ('repoPath' in item || 'ownerUserId' in item)) return 'Project'
         if ('type' in item && ('domain' in item || 'members' in item || item.type === 'private' || item.type === 'domain')) return 'Team'
         if ('emails' in item && 'username' in item) return 'User'
       }

@@ -1,6 +1,15 @@
+import { createHash, randomBytes } from 'node:crypto'
 import { EmailOutbox } from './outbox'
 import { MemoryAuthStore, isEmailLike, normalizeUsername, type AuthStore, type UpdateProfileOptions } from './store'
-import type { Session, UserEmail, UserWithEmails, VerificationPurpose } from './types'
+import type {
+  AgentProjectScope,
+  AgentSession,
+  PendingAgentGrant,
+  Session,
+  UserEmail,
+  UserWithEmails,
+  VerificationPurpose,
+} from './types'
 
 export class AuthService {
   constructor(
@@ -374,5 +383,125 @@ export class AuthService {
 
   async logout(token: string): Promise<void> {
     await this.store.revokeSession(token)
+  }
+
+  /**
+   * Create a 60-second pending authorization grant code with PKCE challenge (RFC 7636).
+   */
+  async createAgentGrantCode(
+    userId: string,
+    input: {
+      agentName: string
+      codeChallenge: string
+      projectScopes: AgentProjectScope[]
+      description?: string
+    },
+  ): Promise<PendingAgentGrant> {
+    const user = await this.store.getUser(userId)
+    if (!user || user.status === 'suspended') {
+      throw new Error('User not found or suspended')
+    }
+
+    const agentName = input.agentName.trim()
+    if (!agentName) {
+      throw new Error('Agent name is required')
+    }
+
+    const codeChallenge = input.codeChallenge.trim()
+    if (!codeChallenge) {
+      throw new Error('PKCE code challenge is required')
+    }
+
+    return this.store.createPendingAgentGrant(
+      userId,
+      agentName,
+      codeChallenge,
+      input.projectScopes,
+      input.description,
+      60_000, // 60s validity
+    )
+  }
+
+  /**
+   * Exchange single-use PKCE authorization code for a long-lived Agent Bearer Token.
+   */
+  async exchangeAgentCodeForToken(
+    code: string,
+    codeVerifier: string,
+  ): Promise<{
+    token: string
+    session: AgentSession
+    user: UserWithEmails
+  }> {
+    const grant = await this.store.consumePendingAgentGrant(code.trim())
+    if (!grant) {
+      throw new Error('Invalid, expired, or already used authorization code')
+    }
+
+    // Verify PKCE: support S256 (SHA-256 base64url) and plain fallback
+    const computedS256 = createHash('sha256').update(codeVerifier.trim()).digest('base64url')
+    const isValid = computedS256 === grant.codeChallenge || codeVerifier.trim() === grant.codeChallenge
+    if (!isValid) {
+      throw new Error('PKCE code verifier does not match challenge')
+    }
+
+    const user = await this.store.getUserWithEmails(grant.userId)
+    if (!user || user.status === 'suspended') {
+      throw new Error('User not found or account suspended')
+    }
+
+    // Generate secure opaque token
+    const token = `md4lp_agt_${randomBytes(32).toString('base64url')}`
+    const tokenHash = createHash('sha256').update(token).digest('hex')
+    const tokenPrefix = token.slice(0, 14) + '...'
+
+    const session = await this.store.createAgentSession({
+      userId: grant.userId,
+      agentName: grant.agentName,
+      description: grant.description,
+      tokenHash,
+      tokenPrefix,
+      projectScopes: grant.projectScopes,
+      idleTimeoutMs: 24 * 60 * 60 * 1000, // 24h sliding idle
+      absoluteExpiresAt: Date.now() + 7 * 24 * 60 * 60 * 1000, // 7 days absolute limit
+    })
+
+    return {
+      token,
+      session,
+      user,
+    }
+  }
+
+  /**
+   * Validate an Agent Bearer Token, checking hash, status, 24h idle timeout, and 7-day absolute limit.
+   */
+  async validateAgentToken(token: string): Promise<{
+    session: AgentSession
+    user: UserWithEmails
+  } | null> {
+    if (!token || !token.startsWith('md4lp_agt_')) return null
+    const tokenHash = createHash('sha256').update(token.trim()).digest('hex')
+    const session = await this.store.getAgentSessionByHash(tokenHash)
+    if (!session) return null
+
+    const user = await this.store.getUserWithEmails(session.userId)
+    if (!user || user.status === 'suspended') return null
+
+    // Renew sliding idle activity
+    await this.store.updateAgentSessionActivity(session.id)
+
+    return {
+      session,
+      user,
+    }
+  }
+
+  async listAgentSessionsForUser(userId: string): Promise<AgentSession[]> {
+    return this.store.listAgentSessionsForUser(userId)
+  }
+
+  async revokeAgentSession(userId: string, sessionId: string): Promise<boolean> {
+    return this.store.revokeAgentSession(userId, sessionId)
   }
 }

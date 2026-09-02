@@ -31,6 +31,7 @@ export interface TeamInvitation {
   id: string
   teamId: string
   invitedBy: string
+  inviterName?: string
   targetEmail?: string
   targetUsername?: string
   role: TeamRole
@@ -44,4 +45,5 @@ export interface TeamWithDetails extends Team {
   members: TeamMemberWithUser[]
   memberCount: number
   currentUserRole?: TeamRole
+  pendingInvitations?: TeamInvitation[]
 }

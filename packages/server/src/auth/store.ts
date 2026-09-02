@@ -1,5 +1,14 @@
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto'
-import type { Session, User, UserEmail, UserWithEmails, VerificationCodeRecord } from './types'
+import type {
+  AgentProjectScope,
+  AgentSession,
+  PendingAgentGrant,
+  Session,
+  User,
+  UserEmail,
+  UserWithEmails,
+  VerificationCodeRecord,
+} from './types'
 
 export interface CreateUserOptions {
   name: string
@@ -52,6 +61,33 @@ export interface AuthStore {
   createSession(userId: string, email: string, expiresInMs?: number): Promise<Session>
   getSession(token: string): Promise<Session | null>
   revokeSession(token: string): Promise<void>
+
+  createPendingAgentGrant(
+    userId: string,
+    agentName: string,
+    codeChallenge: string,
+    projectScopes: AgentProjectScope[],
+    description?: string,
+    expiresInMs?: number,
+  ): Promise<PendingAgentGrant>
+  consumePendingAgentGrant(code: string): Promise<PendingAgentGrant | null>
+
+  createAgentSession(
+    data: {
+      userId: string
+      agentName: string
+      description?: string
+      tokenHash: string
+      tokenPrefix: string
+      projectScopes: AgentProjectScope[]
+      idleTimeoutMs?: number
+      absoluteExpiresAt?: number
+    },
+  ): Promise<AgentSession>
+  getAgentSessionByHash(tokenHash: string): Promise<AgentSession | null>
+  updateAgentSessionActivity(sessionId: string): Promise<void>
+  listAgentSessionsForUser(userId: string): Promise<AgentSession[]>
+  revokeAgentSession(userId: string, sessionId: string): Promise<boolean>
 }
 
 function hashOtp(code: string, salt: string): string {
@@ -78,6 +114,8 @@ export class MemoryAuthStore implements AuthStore {
   private userEmails = new Map<string, UserEmail[]>() // userId -> UserEmail[]
   private verificationCodes = new Map<string, VerificationCodeRecord>() // id -> VerificationCodeRecord
   private sessions = new Map<string, Session>() // token -> Session
+  private pendingAgentGrants = new Map<string, PendingAgentGrant>() // code -> PendingAgentGrant
+  private agentSessions = new Map<string, AgentSession>() // tokenHash -> AgentSession
   private codeSeq = 0
 
   async createUser(options: CreateUserOptions): Promise<UserWithEmails> {
@@ -479,5 +517,129 @@ export class MemoryAuthStore implements AuthStore {
 
   async revokeSession(token: string): Promise<void> {
     this.sessions.delete(token)
+  }
+
+  async createPendingAgentGrant(
+    userId: string,
+    agentName: string,
+    codeChallenge: string,
+    projectScopes: AgentProjectScope[],
+    description?: string,
+    expiresInMs = 60_000, // 60 seconds
+  ): Promise<PendingAgentGrant> {
+    const code = randomBytes(24).toString('base64url')
+    const now = Date.now()
+    const grant: PendingAgentGrant = {
+      code,
+      userId,
+      agentName: agentName.trim(),
+      description: description?.trim(),
+      codeChallenge,
+      projectScopes: projectScopes.map((s) => ({ ...s })),
+      expiresAt: now + expiresInMs,
+      createdAt: now,
+    }
+    this.pendingAgentGrants.set(code, grant)
+    return { ...grant }
+  }
+
+  async consumePendingAgentGrant(code: string): Promise<PendingAgentGrant | null> {
+    const grant = this.pendingAgentGrants.get(code)
+    if (!grant) return null
+    this.pendingAgentGrants.delete(code)
+    if (Date.now() > grant.expiresAt) {
+      return null
+    }
+    return { ...grant }
+  }
+
+  async createAgentSession(data: {
+    userId: string
+    agentName: string
+    description?: string
+    tokenHash: string
+    tokenPrefix: string
+    projectScopes: AgentProjectScope[]
+    idleTimeoutMs?: number
+    absoluteExpiresAt?: number
+  }): Promise<AgentSession> {
+    const id = randomUUID()
+    const now = Date.now()
+    const idleTimeoutMs = data.idleTimeoutMs ?? 24 * 60 * 60 * 1000 // 24 hours
+    const absoluteExpiresAt = data.absoluteExpiresAt ?? now + 7 * 24 * 60 * 60 * 1000 // 7 days
+
+    const session: AgentSession = {
+      id,
+      userId: data.userId,
+      agentName: data.agentName.trim(),
+      description: data.description?.trim(),
+      tokenHash: data.tokenHash,
+      tokenPrefix: data.tokenPrefix,
+      projectScopes: data.projectScopes.map((s) => ({ ...s })),
+      createdAt: now,
+      lastUsedAt: now,
+      idleTimeoutMs,
+      absoluteExpiresAt,
+      status: 'active',
+    }
+
+    this.agentSessions.set(data.tokenHash, session)
+    return { ...session }
+  }
+
+  async getAgentSessionByHash(tokenHash: string): Promise<AgentSession | null> {
+    const session = this.agentSessions.get(tokenHash)
+    if (!session) return null
+
+    const now = Date.now()
+    // Check absolute expiration (7 days)
+    if (now > session.absoluteExpiresAt) {
+      session.status = 'revoked'
+      return null
+    }
+    // Check sliding idle timeout (24 hours)
+    if (now - session.lastUsedAt > session.idleTimeoutMs) {
+      session.status = 'revoked'
+      return null
+    }
+    if (session.status !== 'active') {
+      return null
+    }
+
+    return { ...session }
+  }
+
+  async updateAgentSessionActivity(sessionId: string): Promise<void> {
+    for (const session of this.agentSessions.values()) {
+      if (session.id === sessionId && session.status === 'active') {
+        session.lastUsedAt = Date.now()
+        break
+      }
+    }
+  }
+
+  async listAgentSessionsForUser(userId: string): Promise<AgentSession[]> {
+    const now = Date.now()
+    const result: AgentSession[] = []
+    for (const session of this.agentSessions.values()) {
+      if (session.userId === userId) {
+        // Auto-mark expired
+        if (now > session.absoluteExpiresAt || now - session.lastUsedAt > session.idleTimeoutMs) {
+          session.status = 'revoked'
+        }
+        result.push({ ...session })
+      }
+    }
+    return result.sort((a, b) => b.createdAt - a.createdAt)
+  }
+
+  async revokeAgentSession(userId: string, sessionId: string): Promise<boolean> {
+    for (const session of this.agentSessions.values()) {
+      if (session.id === sessionId && session.userId === userId) {
+        session.status = 'revoked'
+        return true
+      }
+    }
+    return false
   }
 }

@@ -97,6 +97,19 @@ const els = {
   addEmailInput: $<HTMLInputElement>('#addEmailInput'),
   btnSendAddCode: $<HTMLButtonElement>('#btnSendAddCode'),
   btnCloseAccountModal: $<HTMLButtonElement>('#btnCloseAccountModal'),
+
+  btnNotifications: $<HTMLButtonElement>('#btnNotifications'),
+  notifBadge: $<HTMLElement>('#notifBadge'),
+  notificationsModal: $<HTMLDialogElement>('#notificationsModal'),
+  btnCloseNotificationsModal: $<HTMLButtonElement>('#btnCloseNotificationsModal'),
+  notifEmptyMsg: $<HTMLDivElement>('#notifEmptyMsg'),
+  notifTeamInvsSection: $<HTMLDivElement>('#notifTeamInvsSection'),
+  notifTeamInvsCount: $<HTMLElement>('#notifTeamInvsCount'),
+  notifTeamInvsList: $<HTMLDivElement>('#notifTeamInvsList'),
+  notifProjectInvsSection: $<HTMLDivElement>('#notifProjectInvsSection'),
+  notifProjectInvsCount: $<HTMLElement>('#notifProjectInvsCount'),
+  notifProjectInvsList: $<HTMLDivElement>('#notifProjectInvsList'),
+
   btnTeams: $<HTMLButtonElement>('#btnTeams'),
   teamsModal: $<HTMLDialogElement>('#teamsModal'),
   teamsErrorBanner: $<HTMLDivElement>('#teamsErrorBanner'),
@@ -114,6 +127,9 @@ const els = {
   teamDetailErrorBanner: $<HTMLDivElement>('#teamDetailErrorBanner'),
   teamDetailMemberCount: $<HTMLElement>('#teamDetailMemberCount'),
   teamDetailMemberList: $<HTMLDivElement>('#teamDetailMemberList'),
+  teamDetailPendingInvsSection: $<HTMLDivElement>('#teamDetailPendingInvsSection'),
+  teamDetailPendingInvsCount: $<HTMLElement>('#teamDetailPendingInvsCount'),
+  teamDetailPendingInvsList: $<HTMLDivElement>('#teamDetailPendingInvsList'),
   teamInviteSection: $<HTMLDivElement>('#teamInviteSection'),
   teamInviteTargetInput: $<HTMLInputElement>('#teamInviteTargetInput'),
   teamInviteRoleSelect: $<HTMLSelectElement>('#teamInviteRoleSelect'),
@@ -126,6 +142,60 @@ const els = {
   btnCancelMemberExpel: $<HTMLButtonElement>('#btnCancelMemberExpel'),
   btnLeaveTeam: $<HTMLButtonElement>('#btnLeaveTeam'),
   btnCloseTeamDetailsModal: $<HTMLButtonElement>('#btnCloseTeamDetailsModal'),
+
+  btnProjects: $<HTMLButtonElement>('#btnProjects'),
+  projectsModal: $<HTMLDialogElement>('#projectsModal'),
+  projectsErrorBanner: $<HTMLDivElement>('#projectsErrorBanner'),
+  pendingProjInvsSection: $<HTMLDivElement>('#pendingProjInvsSection'),
+  pendingProjInvsList: $<HTMLDivElement>('#pendingProjInvsList'),
+  joinedProjectsList: $<HTMLDivElement>('#joinedProjectsList'),
+  newProjectNameInput: $<HTMLInputElement>('#newProjectNameInput'),
+  newProjectSlugInput: $<HTMLInputElement>('#newProjectSlugInput'),
+  newProjectDescInput: $<HTMLInputElement>('#newProjectDescInput'),
+  newProjectContextEmailSelect: $<HTMLSelectElement>('#newProjectContextEmailSelect'),
+  btnCreateProject: $<HTMLButtonElement>('#btnCreateProject'),
+  btnCloseProjectsModal: $<HTMLButtonElement>('#btnCloseProjectsModal'),
+  projectDetailsModal: $<HTMLDialogElement>('#projectDetailsModal'),
+  projectDetailName: $<HTMLElement>('#projectDetailName'),
+  projectDetailRoleBadge: $<HTMLElement>('#projectDetailRoleBadge'),
+  projectDetailSlug: $<HTMLElement>('#projectDetailSlug'),
+  projectDetailErrorBanner: $<HTMLDivElement>('#projectDetailErrorBanner'),
+  projectContextEmailSection: $<HTMLDivElement>('#projectContextEmailSection'),
+  projectMyContextEmailSelect: $<HTMLSelectElement>('#projectMyContextEmailSelect'),
+  btnUpdateProjectContextEmail: $<HTMLButtonElement>('#btnUpdateProjectContextEmail'),
+  projectDetailMemberCount: $<HTMLElement>('#projectDetailMemberCount'),
+  projectDetailMemberList: $<HTMLDivElement>('#projectDetailMemberList'),
+  projectDetailPendingInvsSection: $<HTMLDivElement>('#projectDetailPendingInvsSection'),
+  projectDetailPendingInvsCount: $<HTMLElement>('#projectDetailPendingInvsCount'),
+  projectDetailPendingInvsList: $<HTMLDivElement>('#projectDetailPendingInvsList'),
+  projectDetailTeamCount: $<HTMLElement>('#projectDetailTeamCount'),
+  projectDetailTeamList: $<HTMLDivElement>('#projectDetailTeamList'),
+  projectOwnerSection: $<HTMLDivElement>('#projectOwnerSection'),
+  projectAssignTeamSelect: $<HTMLSelectElement>('#projectAssignTeamSelect'),
+  projectAssignTeamRoleSelect: $<HTMLSelectElement>('#projectAssignTeamRoleSelect'),
+  btnAssignProjectTeam: $<HTMLButtonElement>('#btnAssignProjectTeam'),
+  projectInviteTargetInput: $<HTMLInputElement>('#projectInviteTargetInput'),
+  projectInviteRoleSelect: $<HTMLSelectElement>('#projectInviteRoleSelect'),
+  btnSendProjectInvite: $<HTMLButtonElement>('#btnSendProjectInvite'),
+  projectMemberRemovePrompt: $<HTMLDivElement>('#projectMemberRemovePrompt'),
+  projMemberRemoveTargetEmail: $<HTMLElement>('#projMemberRemoveTargetEmail'),
+  projMemberRemoveDevHelper: $<HTMLDivElement>('#projMemberRemoveDevHelper'),
+  projMemberRemoveCodeInput: $<HTMLInputElement>('#projMemberRemoveCodeInput'),
+  btnConfirmProjMemberRemove: $<HTMLButtonElement>('#btnConfirmProjMemberRemove'),
+  btnCancelProjMemberRemove: $<HTMLButtonElement>('#btnCancelProjMemberRemove'),
+  btnLeaveProject: $<HTMLButtonElement>('#btnLeaveProject'),
+  btnCloseProjectDetailsModal: $<HTMLButtonElement>('#btnCloseProjectDetailsModal'),
+
+  connectedAgentsList: $<HTMLDivElement>('#connectedAgentsList'),
+  authorizeAgentModal: $<HTMLDialogElement>('#authorizeAgentModal'),
+  authAgentErrorBanner: $<HTMLDivElement>('#authAgentErrorBanner'),
+  authAgentClientName: $<HTMLElement>('#authAgentClientName'),
+  authAgentProjectMatrix: $<HTMLDivElement>('#authAgentProjectMatrix'),
+  authAgentSuccessBox: $<HTMLDivElement>('#authAgentSuccessBox'),
+  authAgentBtnRow: $<HTMLDivElement>('#authAgentBtnRow'),
+  btnSubmitAuthorizeAgent: $<HTMLButtonElement>('#btnSubmitAuthorizeAgent'),
+  btnCancelAuthorizeAgent: $<HTMLButtonElement>('#btnCancelAuthorizeAgent'),
+  btnCloseAuthorizeAgentSuccess: $<HTMLButtonElement>('#btnCloseAuthorizeAgentSuccess'),
 }
 
 interface UserEmail {
@@ -143,6 +213,57 @@ interface UserProfile {
   avatarUrl?: string
   defaultEmail: string
   emails: UserEmail[]
+}
+
+interface ProjectMemberWithUser {
+  projectId: string
+  userId: string
+  role: 'owner' | 'editor' | 'commenter' | 'viewer'
+  contextEmail: string
+  joinedAt: number
+  username: string
+  name: string
+  avatarUrl?: string
+}
+
+interface ProjectTeamWithDetails {
+  projectId: string
+  teamId: string
+  role: 'owner' | 'editor' | 'commenter' | 'viewer'
+  assignedAt: number
+  teamName: string
+  teamType: 'private' | 'domain'
+  memberCount: number
+}
+
+interface ProjectWithDetails {
+  id: string
+  name: string
+  slug: string
+  description?: string
+  repoPath: string
+  ownerUserId: string
+  createdAt: number
+  updatedAt: number
+  members: ProjectMemberWithUser[]
+  teams: ProjectTeamWithDetails[]
+  effectiveRole?: 'owner' | 'editor' | 'commenter' | 'viewer'
+  currentContextEmail?: string
+  pendingInvitations?: ProjectInvitation[]
+}
+
+interface ProjectInvitation {
+  id: string
+  projectId: string
+  projectName?: string
+  invitedBy: string
+  inviterName?: string
+  role: 'owner' | 'editor' | 'commenter' | 'viewer'
+  targetUsername?: string
+  targetEmail?: string
+  status: string
+  createdAt: number
+  expiresAt: number
 }
 
 let currentUser: UserProfile | null = null
@@ -812,6 +933,8 @@ async function refreshAuthUI(): Promise<void> {
       } else {
         els.userBadgeAvatar.style.display = 'none'
       }
+      await updateNotificationsBadge()
+      await handleUrlHashActions()
     } else {
       localStorage.removeItem('md4lp_token')
       els.btnOpenAuth.style.display = 'inline-block'
@@ -1190,8 +1313,83 @@ els.btnVerifyCode.addEventListener('click', () => run(async () => {
   }
 }))
 
+async function renderConnectedAgents(): Promise<void> {
+  if (!currentUser) return
+  els.connectedAgentsList.innerHTML = '<div style="color: var(--muted); padding: 4px 0;">Loading sessions...</div>'
+  try {
+    const res = await api<{
+      ok: true
+      sessions: Array<{
+        id: string
+        agentName: string
+        tokenPrefix: string
+        projectScopes: Array<{ projectId: string; maxRole: string }>
+        status: string
+        createdAt: number
+        lastUsedAt: number
+        absoluteExpiresAt: number
+      }>
+    }>('GET', 'auth/agent-sessions')
+    const sessions = res.sessions || []
+    if (sessions.length === 0) {
+      els.connectedAgentsList.innerHTML = '<div style="color: var(--muted); padding: 4px 0;">No connected AI agents or MCP sessions.</div>'
+      return
+    }
+
+    const projectsRes = await api<{ ok: true; projects: Array<{ id: string; name: string }> }>('GET', 'projects').catch(() => ({ ok: true as const, projects: [] }))
+    const projMap = new Map((projectsRes.projects || []).map((p) => [p.id, p.name]))
+
+    els.connectedAgentsList.innerHTML = sessions.map((s) => {
+      const isExpired = s.status !== 'active'
+      const statusBadge = isExpired
+        ? '<span style="font-size: 10px; background: #fee2e2; color: #991b1b; padding: 1px 6px; border-radius: 4px;">Revoked / Expired</span>'
+        : '<span style="font-size: 10px; background: #dcfce7; color: #166534; padding: 1px 6px; border-radius: 4px;">Active</span>'
+
+      const scopeDesc = s.projectScopes && s.projectScopes.length > 0
+        ? s.projectScopes.map((ps) => `<b>${projMap.get(ps.projectId) || ps.projectId}</b> (${ps.maxRole})`).join(', ')
+        : 'None'
+
+      const expDate = new Date(s.absoluteExpiresAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+      const lastActive = new Date(s.lastUsedAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+
+      return `
+        <div style="padding: 8px 10px; margin-bottom: 6px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div style="display: flex; align-items: center; gap: 6px;">
+              <b>🤖 ${s.agentName}</b>
+              ${statusBadge}
+              <code style="font-size: 10px; color: var(--muted);">${s.tokenPrefix}</code>
+            </div>
+            <div style="font-size: 11px; color: var(--muted); margin-top: 2px;">Projects: ${scopeDesc}</div>
+            <div style="font-size: 10px; color: var(--muted); margin-top: 1px;">Last active: ${lastActive} • Expires: ${expDate}</div>
+          </div>
+          ${
+            !isExpired
+              ? `<button class="btn-revoke-agent" data-session-id="${s.id}" style="font-size: 11px; padding: 3px 8px; color: #ef4444; border-color: #fca5a5;">Revoke</button>`
+              : ''
+          }
+        </div>
+      `
+    }).join('')
+
+    els.connectedAgentsList.querySelectorAll<HTMLButtonElement>('.btn-revoke-agent').forEach((btn) => {
+      btn.addEventListener('click', () => run(async () => {
+        const sessionId = btn.getAttribute('data-session-id')
+        if (!sessionId) return
+        if (!confirm('Are you sure you want to revoke this agent session?')) return
+        await api('DELETE', `auth/agent-sessions/${sessionId}`)
+        await renderConnectedAgents()
+        setStatus('✓ Agent session revoked')
+      }))
+    })
+  } catch (err) {
+    els.connectedAgentsList.innerHTML = `<div style="color: #ef4444; font-size: 11px;">Error loading agent sessions: ${err instanceof Error ? err.message : String(err)}</div>`
+  }
+}
+
 els.btnManageAccount.addEventListener('click', () => {
   renderAccountEmails()
+  renderConnectedAgents()
   els.addEmailInput.value = ''
   els.accountModal.showModal()
 })
@@ -1270,6 +1468,7 @@ interface TeamWithDetails extends Team {
   members: TeamMember[]
   memberCount: number
   currentUserRole?: 'admin' | 'member'
+  pendingInvitations?: TeamInvitation[]
 }
 
 interface TeamInvitation {
@@ -1287,6 +1486,91 @@ interface TeamInvitation {
 
 let currentActiveTeamId: string | null = null
 let expelTargetUserId: string | null = null
+
+async function updateNotificationsBadge(): Promise<void> {
+  if (!currentUser) {
+    els.notifBadge.style.display = 'none'
+    return
+  }
+  try {
+    const [teamInvsRes, projInvsRes] = await Promise.all([
+      api<{ ok: boolean; invitations: TeamInvitation[] }>('GET', 'teams/invitations/pending'),
+      api<{ ok: boolean; invitations: Array<ProjectInvitation & { projectName: string; inviterName: string }> }>('GET', 'projects/invitations/pending'),
+    ])
+    const teamCount = teamInvsRes.invitations?.length || 0
+    const projCount = projInvsRes.invitations?.length || 0
+    const total = teamCount + projCount
+
+    if (total > 0) {
+      els.notifBadge.textContent = String(total)
+      els.notifBadge.style.display = 'inline-block'
+    } else {
+      els.notifBadge.style.display = 'none'
+    }
+  } catch {
+    els.notifBadge.style.display = 'none'
+  }
+}
+
+async function renderNotificationsModal(): Promise<void> {
+  if (!currentUser) return
+  try {
+    const [teamInvsRes, projInvsRes] = await Promise.all([
+      api<{ ok: boolean; invitations: TeamInvitation[] }>('GET', 'teams/invitations/pending'),
+      api<{ ok: boolean; invitations: Array<ProjectInvitation & { projectName: string; inviterName: string }> }>('GET', 'projects/invitations/pending'),
+    ])
+
+    const teamInvs = teamInvsRes.invitations || []
+    const projInvs = projInvsRes.invitations || []
+    const total = teamInvs.length + projInvs.length
+
+    if (total === 0) {
+      els.notifEmptyMsg.style.display = 'block'
+      els.notifTeamInvsSection.style.display = 'none'
+      els.notifProjectInvsSection.style.display = 'none'
+    } else {
+      els.notifEmptyMsg.style.display = 'none'
+
+      if (teamInvs.length > 0) {
+        els.notifTeamInvsSection.style.display = 'block'
+        els.notifTeamInvsCount.textContent = String(teamInvs.length)
+        els.notifTeamInvsList.innerHTML = teamInvs
+          .map((inv) => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin-bottom: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px;">
+              <div>
+                <b>${escapeHtml(inv.teamName || 'Team')}</b> (invited by ${escapeHtml(inv.inviterName || 'User')} as <i>${inv.role}</i>)
+              </div>
+              <button onclick="window.handleNotifTeam()" class="primary" style="font-size: 11px; padding: 4px 8px;">Review / Go to Teams</button>
+            </div>
+          `)
+          .join('')
+      } else {
+        els.notifTeamInvsSection.style.display = 'none'
+        els.notifTeamInvsList.innerHTML = ''
+      }
+
+      if (projInvs.length > 0) {
+        els.notifProjectInvsSection.style.display = 'block'
+        els.notifProjectInvsCount.textContent = String(projInvs.length)
+        els.notifProjectInvsList.innerHTML = projInvs
+          .map((inv) => `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin-bottom: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px;">
+              <div>
+                <b>${escapeHtml(inv.projectName || 'Project')}</b> (invited by ${escapeHtml(inv.inviterName || 'User')} as <i>${inv.role}</i>)
+              </div>
+              <button onclick="window.handleNotifProject()" class="primary" style="font-size: 11px; padding: 4px 8px;">Review / Go to Projects</button>
+            </div>
+          `)
+          .join('')
+      } else {
+        els.notifProjectInvsSection.style.display = 'none'
+        els.notifProjectInvsList.innerHTML = ''
+      }
+    }
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}
 
 async function renderTeamsModal(): Promise<void> {
   if (!currentUser) return
@@ -1308,7 +1592,7 @@ async function renderTeamsModal(): Promise<void> {
           return `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px;">
               <div>
-                <b>${escapeHtml(inv.teamName)}</b> (invited by ${escapeHtml(inv.inviterName)} as <i>${inv.role}</i>)
+                <b>${escapeHtml(inv.teamName || 'Private Team')}</b> (invited by ${escapeHtml(inv.inviterName || 'Admin')} as <i>${inv.role}</i>)
               </div>
               <div style="display: flex; gap: 4px;">
                 <button class="primary" onclick="window.acceptTeamInvite('${inv.id}')" style="font-size: 11px; padding: 3px 8px;">Accept</button>
@@ -1328,13 +1612,12 @@ async function renderTeamsModal(): Promise<void> {
     if (joined.length > 0) {
       els.joinedTeamsList.innerHTML = joined
         .map((t) => {
-          const typeLabel = t.type === 'domain' ? `🏢 Domain (${escapeHtml(t.domain || '')})` : '🔒 Private'
-          const roleBadge = t.currentUserRole === 'admin' ? '<span class="badge-primary">Admin</span>' : '<span style="font-size: 10px; background: var(--surface); padding: 2px 6px; border-radius: 10px;">Member</span>'
+          const badge = t.type === 'domain' ? '🏢 Domain' : '🔒 Private'
           return `
             <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin-bottom: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px;">
               <div>
-                <div style="font-weight: 600;">${escapeHtml(t.name)} ${roleBadge}</div>
-                <div style="font-size: 11px; color: var(--muted);">${typeLabel} • ${t.memberCount} member${t.memberCount === 1 ? '' : 's'}</div>
+                <div style="font-weight: 600;">${escapeHtml(t.name)}</div>
+                <div style="font-size: 11px; color: var(--muted);">${badge} • ${t.memberCount} member${t.memberCount === 1 ? '' : 's'}</div>
               </div>
               <button onclick="window.openTeamDetails('${t.id}')" class="primary" style="font-size: 12px; padding: 4px 10px;">View / Manage</button>
             </div>
@@ -1342,30 +1625,29 @@ async function renderTeamsModal(): Promise<void> {
         })
         .join('')
     } else {
-      els.joinedTeamsList.innerHTML = '<p style="font-size: 12px; color: var(--muted); margin: 6px 0;">You are not a member of any teams yet.</p>'
+      els.joinedTeamsList.innerHTML = '<p style="font-size: 12px; color: var(--muted); margin: 6px 0;">You have not joined any teams yet.</p>'
     }
 
-    // 3. Available Domain Teams
-    const availDomains = overview.availableDomainTeams || []
-    if (availDomains.length > 0) {
+    // 3. Available Domain Teams (to join)
+    const avail = overview.availableDomainTeams || []
+    if (avail.length > 0) {
       els.availDomainTeamsSection.style.display = 'block'
-      els.availDomainTeamsList.innerHTML = availDomains
-        .map((t) => {
-          return `
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin-bottom: 6px; background: rgba(59, 130, 246, 0.05); border: 1px solid rgba(59, 130, 246, 0.2); border-radius: 6px; font-size: 13px;">
-              <div>
-                <div style="font-weight: 600; color: #3b82f6;">${escapeHtml(t.name)}</div>
-                <div style="font-size: 11px; color: var(--muted);">Available for your verified @${escapeHtml(t.domain || '')} email</div>
-              </div>
-              <button onclick="window.joinDomainTeam('${t.id}', '${escapeHtml(t.domain || '')}')" class="primary" style="font-size: 12px; padding: 4px 10px;">Join Team</button>
+      els.availDomainTeamsList.innerHTML = avail
+        .map((t) => `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px;">
+            <div>
+              <b>${escapeHtml(t.name)}</b> <span style="font-size: 11px; color: var(--muted);">(@${escapeHtml(t.domain || '')})</span>
             </div>
-          `
-        })
+            <button class="primary" onclick="window.joinDomainTeam('${t.id}', '${escapeHtml(t.domain || '')}')" style="font-size: 11px; padding: 3px 8px;">Join</button>
+          </div>
+        `)
         .join('')
     } else {
       els.availDomainTeamsSection.style.display = 'none'
       els.availDomainTeamsList.innerHTML = ''
     }
+
+    await updateNotificationsBadge()
   } catch (err) {
     els.teamsErrorBanner.textContent = err instanceof Error ? err.message : String(err)
     els.teamsErrorBanner.style.display = 'block'
@@ -1419,6 +1701,34 @@ async function openTeamDetails(teamId: string): Promise<void> {
       })
       .join('')
 
+    // Pending Team Invitations (for admins/members)
+    const pendingInvs = team.pendingInvitations || []
+    if (pendingInvs.length > 0) {
+      els.teamDetailPendingInvsSection.style.display = 'block'
+      els.teamDetailPendingInvsCount.textContent = String(pendingInvs.length)
+      els.teamDetailPendingInvsList.innerHTML = pendingInvs
+        .map((inv) => {
+          const target = inv.targetEmail || (inv.targetUsername ? `@${inv.targetUsername}` : 'Unknown')
+          let revokeBtn = ''
+          if (team.currentUserRole === 'admin') {
+            revokeBtn = `<button onclick="window.revokeTeamInvite('${inv.id}')" style="font-size: 11px; padding: 2px 6px; color: #e53e3e; border-color: #feb2b2;">Revoke</button>`
+          }
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px;">
+              <div>
+                <b>${escapeHtml(target)}</b> <span class="badge-primary" style="font-size: 9px;">${inv.role}</span>
+                <div style="font-size: 11px; color: var(--muted);">Invited by ${escapeHtml(inv.inviterName || 'Admin')}</div>
+              </div>
+              ${revokeBtn}
+            </div>
+          `
+        })
+        .join('')
+    } else {
+      els.teamDetailPendingInvsSection.style.display = 'none'
+      els.teamDetailPendingInvsList.innerHTML = ''
+    }
+
     // Private team invite section (only for admin)
     if (team.type === 'private' && team.currentUserRole === 'admin') {
       els.teamInviteSection.style.display = 'block'
@@ -1441,15 +1751,50 @@ let expelTeamType: 'private' | 'domain' = 'private'
 // Global window helpers for inline onclick handlers in modal HTML
 declare global {
   interface Window {
+    handleNotifTeam: () => Promise<void>
+    handleNotifProject: () => Promise<void>
+
     openTeamDetails: (teamId: string) => Promise<void>
     joinDomainTeam: (teamId: string, domain: string) => Promise<void>
     acceptTeamInvite: (invitationId: string) => Promise<void>
     rejectTeamInvite: (invitationId: string) => Promise<void>
+    revokeTeamInvite: (invitationId: string) => Promise<void>
     promptRemoveMember: (targetUserId: string, type: 'private' | 'domain') => Promise<void>
+
+    openProjectDetails: (projectId: string) => Promise<void>
+    acceptProjectInvite: (invitationId: string) => Promise<void>
+    rejectProjectInvite: (invitationId: string) => Promise<void>
+    revokeProjectInvite: (invitationId: string) => Promise<void>
+    promptRemoveProjectMember: (targetUserId: string) => Promise<void>
+    removeProjectTeam: (teamId: string) => Promise<void>
   }
 }
 
+window.handleNotifTeam = async () => {
+  els.notificationsModal.close()
+  await renderTeamsModal()
+  els.teamsModal.showModal()
+}
+
+window.handleNotifProject = async () => {
+  els.notificationsModal.close()
+  await renderProjectsModal()
+  els.projectsModal.showModal()
+}
+
 window.openTeamDetails = (teamId: string) => openTeamDetails(teamId)
+
+window.revokeTeamInvite = async (invitationId: string) => {
+  if (!confirm('Revoke this team invitation?')) return
+  try {
+    await api('DELETE', `teams/invitations/${invitationId}`)
+    setStatus('✓ Team invitation revoked')
+    if (currentActiveTeamId) await openTeamDetails(currentActiveTeamId)
+    await updateNotificationsBadge()
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}
 
 window.promptRemoveMember = async (targetUserId: string, type: 'private' | 'domain') => {
   if (!currentUser || !currentActiveTeamId) return
@@ -1611,9 +1956,596 @@ els.btnLeaveTeam.addEventListener('click', () => run(async () => {
   }
 }))
 
+// ── Projects and Repositories UI Handlers ──
+
+let currentActiveProjectId: string | null = null
+let removeProjMemberTargetUserId: string | null = null
+
+async function renderProjectsModal(): Promise<void> {
+  els.projectsErrorBanner.style.display = 'none'
+  els.projectsErrorBanner.textContent = ''
+
+  try {
+    const [projectsRes, invsRes] = await Promise.all([
+      api<{ ok: boolean; projects: ProjectWithDetails[] }>('GET', 'projects'),
+      api<{ ok: boolean; invitations: Array<ProjectInvitation & { projectName: string; inviterName: string }> }>('GET', 'projects/invitations/pending'),
+    ])
+
+    // Populate Context Email selector for new project form
+    if (currentUser) {
+      const verifiedEmails = currentUser.emails.filter((e) => e.verifiedAt !== null)
+      els.newProjectContextEmailSelect.innerHTML = verifiedEmails
+        .map((e) => `<option value="${escapeHtml(e.email)}">${escapeHtml(e.email)}</option>`)
+        .join('')
+    }
+
+    // 1. Pending Invitations
+    const invs = invsRes.invitations || []
+    if (invs.length > 0) {
+      els.pendingProjInvsSection.style.display = 'block'
+      els.pendingProjInvsList.innerHTML = invs
+        .map((inv) => `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px;">
+            <div>
+              <b>${escapeHtml(inv.projectName || 'Project')}</b> (invited by ${escapeHtml(inv.inviterName || 'User')} as <i>${inv.role}</i>)
+            </div>
+            <div style="display: flex; gap: 4px;">
+              <button class="primary" onclick="window.acceptProjectInvite('${inv.id}')" style="font-size: 11px; padding: 3px 8px;">Accept</button>
+              <button onclick="window.rejectProjectInvite('${inv.id}')" style="font-size: 11px; padding: 3px 8px;">Reject</button>
+            </div>
+          </div>
+        `)
+        .join('')
+    } else {
+      els.pendingProjInvsSection.style.display = 'none'
+      els.pendingProjInvsList.innerHTML = ''
+    }
+
+    // 2. Joined Projects
+    const projectsList = projectsRes.projects || []
+    if (projectsList.length > 0) {
+      els.joinedProjectsList.innerHTML = projectsList
+        .map((p) => {
+          const roleBadge = p.effectiveRole ? `<span class="badge-primary" style="font-size: 10px; margin-left: 4px;">${p.effectiveRole}</span>` : ''
+          const emailInfo = p.currentContextEmail ? `<span style="font-size: 11px; color: var(--muted); margin-left: 6px;">(${escapeHtml(p.currentContextEmail)})</span>` : ''
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px; margin-bottom: 6px; border: 1px solid var(--border); border-radius: 6px; font-size: 13px;">
+              <div>
+                <div style="font-weight: 600;">${escapeHtml(p.name)} ${roleBadge}</div>
+                <div style="font-size: 11px; color: var(--muted);">${escapeHtml(p.slug)} ${emailInfo} • ${p.members.length} direct member${p.members.length === 1 ? '' : 's'}</div>
+              </div>
+              <button onclick="window.openProjectDetails('${p.id}')" class="primary" style="font-size: 12px; padding: 4px 10px;">View / Manage</button>
+            </div>
+          `
+        })
+        .join('')
+    } else {
+      els.joinedProjectsList.innerHTML = '<p style="font-size: 12px; color: var(--muted); margin: 6px 0;">You do not have any projects yet. Create one below!</p>'
+    }
+
+    await updateNotificationsBadge()
+  } catch (err) {
+    els.projectsErrorBanner.textContent = err instanceof Error ? err.message : String(err)
+    els.projectsErrorBanner.style.display = 'block'
+  }
+}
+
+async function openProjectDetails(projectId: string): Promise<void> {
+  currentActiveProjectId = projectId
+  removeProjMemberTargetUserId = null
+  els.projectMemberRemovePrompt.style.display = 'none'
+  els.projectDetailErrorBanner.style.display = 'none'
+  els.projectDetailErrorBanner.textContent = ''
+
+  try {
+    const res = await api<{ ok: boolean; project: ProjectWithDetails }>('GET', `projects/${projectId}`)
+    const project = res.project
+    els.projectDetailName.textContent = project.name
+    els.projectDetailSlug.textContent = `Slug: ${project.slug} | Git context: ${project.currentContextEmail || 'none'}`
+    els.projectDetailRoleBadge.textContent = project.effectiveRole ? `Role: ${project.effectiveRole.toUpperCase()}` : 'Member'
+    els.projectDetailMemberCount.textContent = String(project.members.length)
+    els.projectDetailTeamCount.textContent = String(project.teams.length)
+
+    // Direct Members
+    els.projectDetailMemberList.innerHTML = project.members
+      .map((m) => {
+        const isSelf = currentUser && m.userId === currentUser.id
+        const avatar = m.avatarUrl
+          ? `<img src="${escapeHtml(m.avatarUrl)}" style="width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" />`
+          : `<div class="user-avatar-large" style="width: 24px; height: 24px; font-size: 11px;">${escapeHtml(m.name[0]?.toUpperCase() || '?')}</div>`
+        const roleBadge = `<span class="badge-primary" style="font-size: 9px;">${m.role}</span>`
+
+        let removeBtn = ''
+        if (project.effectiveRole === 'owner' && !isSelf) {
+          removeBtn = `<button onclick="window.promptRemoveProjectMember('${m.userId}')" style="font-size: 11px; padding: 2px 6px; color: #e53e3e; border-color: #feb2b2;">Remove</button>`
+        }
+
+        return `
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px;">
+            <div style="display: flex; align-items: center; gap: 8px;">
+              ${avatar}
+              <div>
+                <div style="font-weight: 500;">${escapeHtml(m.name)} <span style="color: var(--muted); font-size: 11px;">@${escapeHtml(m.username)}</span> ${roleBadge}</div>
+                <div style="font-size: 11px; color: var(--muted);">${escapeHtml(m.contextEmail)}</div>
+              </div>
+            </div>
+            ${removeBtn}
+          </div>
+        `
+      })
+      .join('')
+
+    // Git Signature Email Selector for current user
+    if (currentUser) {
+      const verifiedEmails = currentUser.emails.filter((e) => e.verifiedAt !== null)
+      const currentContext = project.currentContextEmail || currentUser.defaultEmail
+      els.projectMyContextEmailSelect.innerHTML = verifiedEmails
+        .map((e) => `<option value="${escapeHtml(e.email)}" ${e.email.toLowerCase() === currentContext.toLowerCase() ? 'selected' : ''}>${escapeHtml(e.email)}</option>`)
+        .join('')
+      els.projectContextEmailSection.style.display = 'block'
+    } else {
+      els.projectContextEmailSection.style.display = 'none'
+    }
+
+    // Pending Invitations (for owners/members)
+    const pendingInvs = project.pendingInvitations || []
+    if (pendingInvs.length > 0) {
+      els.projectDetailPendingInvsSection.style.display = 'block'
+      els.projectDetailPendingInvsCount.textContent = String(pendingInvs.length)
+      els.projectDetailPendingInvsList.innerHTML = pendingInvs
+        .map((inv) => {
+          const target = inv.targetEmail || (inv.targetUsername ? `@${inv.targetUsername}` : 'Unknown')
+          let revokeBtn = ''
+          if (project.effectiveRole === 'owner') {
+            revokeBtn = `<button onclick="window.revokeProjectInvite('${inv.id}')" style="font-size: 11px; padding: 2px 6px; color: #e53e3e; border-color: #feb2b2;">Revoke</button>`
+          }
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px;">
+              <div>
+                <b>${escapeHtml(target)}</b> <span class="badge-primary" style="font-size: 9px;">${inv.role}</span>
+                <div style="font-size: 11px; color: var(--muted);">Invited by ${escapeHtml(inv.inviterName || 'User')}</div>
+              </div>
+              ${revokeBtn}
+            </div>
+          `
+        })
+        .join('')
+    } else {
+      els.projectDetailPendingInvsSection.style.display = 'none'
+      els.projectDetailPendingInvsList.innerHTML = ''
+    }
+
+    // Assigned Teams
+    if (project.teams.length > 0) {
+      els.projectDetailTeamList.innerHTML = project.teams
+        .map((t) => {
+          let removeTeamBtn = ''
+          if (project.effectiveRole === 'owner') {
+            removeTeamBtn = `<button onclick="window.removeProjectTeam('${t.teamId}')" style="font-size: 11px; padding: 2px 6px; color: #e53e3e; border-color: #feb2b2;">Remove</button>`
+          }
+          return `
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px;">
+              <div>
+                <b>${escapeHtml(t.teamName)}</b> <span class="badge-primary" style="font-size: 9px;">${t.role}</span>
+                <div style="font-size: 11px; color: var(--muted);">${t.teamType === 'domain' ? '🏢 Domain' : '🔒 Private'} • ${t.memberCount} member${t.memberCount === 1 ? '' : 's'}</div>
+              </div>
+              ${removeTeamBtn}
+            </div>
+          `
+        })
+        .join('')
+    } else {
+      els.projectDetailTeamList.innerHTML = '<p style="font-size: 12px; color: var(--muted); margin: 4px 0;">No teams assigned yet.</p>'
+    }
+
+    // Owner controls
+    if (project.effectiveRole === 'owner') {
+      els.projectOwnerSection.style.display = 'block'
+      // Populate available teams to assign
+      const teamsRes = await api<{ ok: boolean; joinedTeams: any[] }>('GET', 'teams/overview')
+      const userTeams = teamsRes.joinedTeams || []
+      els.projectAssignTeamSelect.innerHTML = userTeams
+        .map((t) => `<option value="${escapeHtml(t.id)}">${escapeHtml(t.name)}</option>`)
+        .join('')
+    } else {
+      els.projectOwnerSection.style.display = 'none'
+    }
+
+    if (els.projectsModal.open) els.projectsModal.close()
+    els.projectDetailsModal.showModal()
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+    if (els.projectDetailsModal.open) els.projectDetailsModal.close()
+    await renderProjectsModal()
+  }
+}
+
+window.openProjectDetails = (id: string) => openProjectDetails(id)
+
+window.acceptProjectInvite = async (invitationId: string) => {
+  try {
+    const verifiedEmails = currentUser?.emails.filter((e) => e.verifiedAt !== null) || []
+    let contextEmail: string | undefined = currentUser?.defaultEmail
+    if (verifiedEmails.length > 1) {
+      const choice = prompt(
+        `Select contextual email for Git commits in this project:\n${verifiedEmails.map((e) => e.email).join('\n')}`,
+        currentUser?.defaultEmail,
+      )
+      if (choice) contextEmail = choice.trim()
+    }
+    await api('POST', `projects/invitations/${invitationId}/accept`, { body: { contextEmail } })
+    setStatus('✓ Joined project')
+    await renderProjectsModal()
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}
+
+window.rejectProjectInvite = async (invitationId: string) => {
+  if (!confirm('Reject this project invitation?')) return
+  try {
+    await api('POST', `projects/invitations/${invitationId}/reject`)
+    setStatus('Project invitation rejected')
+    await renderProjectsModal()
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}
+
+window.revokeProjectInvite = async (invitationId: string) => {
+  if (!confirm('Revoke this project invitation?')) return
+  try {
+    await api('DELETE', `projects/invitations/${invitationId}`)
+    setStatus('✓ Invitation revoked')
+    if (currentActiveProjectId) await openProjectDetails(currentActiveProjectId)
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}
+
+window.promptRemoveProjectMember = async (targetUserId: string) => {
+  if (!currentActiveProjectId || !currentUser) return
+  removeProjMemberTargetUserId = targetUserId
+  els.projectMemberRemovePrompt.style.display = 'block'
+  els.projMemberRemoveDevHelper.style.display = 'none'
+  els.projMemberRemoveTargetEmail.textContent = currentUser.defaultEmail || ''
+  els.projMemberRemoveCodeInput.value = ''
+
+  try {
+    const res = await api<{ ok: boolean; email: string; devCode?: string }>('POST', 'auth/request-code', {
+      body: { identifier: currentUser.defaultEmail, purpose: 'remove_project_member' },
+    })
+    if (res.devCode) {
+      els.projMemberRemoveDevHelper.textContent = `[Dev mode OTP code]: ${res.devCode}`
+      els.projMemberRemoveDevHelper.style.display = 'block'
+      els.projMemberRemoveCodeInput.value = res.devCode
+    }
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}
+
+window.removeProjectTeam = async (teamId: string) => {
+  if (!currentActiveProjectId) return
+  if (!confirm('Remove this team from the project? Members will lose inherited project access.')) return
+  try {
+    await api('DELETE', `projects/${currentActiveProjectId}/teams/${teamId}`)
+    setStatus('✓ Team removed from project')
+    await openProjectDetails(currentActiveProjectId)
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}
+
+function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/[\s_-]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+}
+
+let slugManuallyEdited = false
+els.newProjectSlugInput.addEventListener('input', () => {
+  slugManuallyEdited = els.newProjectSlugInput.value.trim().length > 0
+})
+
+els.newProjectNameInput.addEventListener('input', () => {
+  if (!slugManuallyEdited) {
+    els.newProjectSlugInput.value = slugify(els.newProjectNameInput.value)
+  }
+})
+
+els.btnProjects.addEventListener('click', () => {
+  slugManuallyEdited = false
+  renderProjectsModal()
+  els.newProjectNameInput.value = ''
+  els.newProjectSlugInput.value = ''
+  els.newProjectDescInput.value = ''
+  els.projectsModal.showModal()
+})
+
+els.btnCloseProjectsModal.addEventListener('click', () => els.projectsModal.close())
+els.btnCloseProjectDetailsModal.addEventListener('click', () => {
+  els.projectDetailsModal.close()
+  renderProjectsModal()
+})
+
+els.btnCreateProject.addEventListener('click', () => run(async () => {
+  const name = els.newProjectNameInput.value.trim()
+  const slug = els.newProjectSlugInput.value.trim() || undefined
+  const description = els.newProjectDescInput.value.trim() || undefined
+  const contextEmail = els.newProjectContextEmailSelect.value.trim() || undefined
+
+  if (!name) {
+    alert('Please enter a project name')
+    return
+  }
+
+  try {
+    await api('POST', 'projects', {
+      body: { name, slug, description, contextEmail },
+    })
+    els.newProjectNameInput.value = ''
+    els.newProjectSlugInput.value = ''
+    els.newProjectDescInput.value = ''
+    setStatus(`✓ Created project "${name}"`)
+    await renderProjectsModal()
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}))
+
+els.btnUpdateProjectContextEmail.addEventListener('click', () => run(async () => {
+  if (!currentActiveProjectId) return
+  const newEmail = els.projectMyContextEmailSelect.value.trim()
+  if (!newEmail) return
+  try {
+    await api('POST', `projects/${currentActiveProjectId}/context-email`, {
+      body: { contextEmail: newEmail },
+    })
+    setStatus(`✓ Git signature email updated to ${newEmail}`)
+    await openProjectDetails(currentActiveProjectId)
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}))
+
+els.btnAssignProjectTeam.addEventListener('click', () => run(async () => {
+  if (!currentActiveProjectId) return
+  const teamId = els.projectAssignTeamSelect.value
+  const role = els.projectAssignTeamRoleSelect.value as any
+  if (!teamId) {
+    alert('Please select a team to assign')
+    return
+  }
+  try {
+    await api('POST', `projects/${currentActiveProjectId}/teams`, {
+      body: { teamId, role },
+    })
+    setStatus('✓ Team assigned to project')
+    await openProjectDetails(currentActiveProjectId)
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}))
+
+els.btnSendProjectInvite.addEventListener('click', () => run(async () => {
+  if (!currentActiveProjectId) return
+  const target = els.projectInviteTargetInput.value.trim()
+  const role = els.projectInviteRoleSelect.value as any
+  if (!target) {
+    alert('Please enter a username (@handle) or email')
+    return
+  }
+  try {
+    await api('POST', `projects/${currentActiveProjectId}/invite`, {
+      body: { target, role },
+    })
+    els.projectInviteTargetInput.value = ''
+    setStatus(`✓ Project invitation sent to ${target}`)
+    await openProjectDetails(currentActiveProjectId)
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}))
+
+els.btnConfirmProjMemberRemove.addEventListener('click', () => run(async () => {
+  if (!currentActiveProjectId || !removeProjMemberTargetUserId) return
+  const code = els.projMemberRemoveCodeInput.value.trim()
+  if (!code) {
+    alert('Please enter the 6-digit verification code')
+    return
+  }
+  try {
+    await api('POST', `projects/${currentActiveProjectId}/members/remove`, {
+      body: { targetUserId: removeProjMemberTargetUserId, reverificationCode: code },
+    })
+    setStatus('✓ Member removed from project')
+    els.projectMemberRemovePrompt.style.display = 'none'
+    removeProjMemberTargetUserId = null
+    await openProjectDetails(currentActiveProjectId)
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}))
+
+els.btnCancelProjMemberRemove.addEventListener('click', () => {
+  els.projectMemberRemovePrompt.style.display = 'none'
+  removeProjMemberTargetUserId = null
+})
+
+els.btnLeaveProject.addEventListener('click', () => run(async () => {
+  if (!currentActiveProjectId) return
+  if (!confirm('Are you sure you want to leave this project?')) return
+  try {
+    await api('POST', `projects/${currentActiveProjectId}/leave`)
+    setStatus('You left the project')
+    els.projectDetailsModal.close()
+    await renderProjectsModal()
+  } catch (err) {
+    alert(err instanceof Error ? err.message : String(err))
+  }
+}))
+
+els.btnNotifications.addEventListener('click', () => run(async () => {
+  await renderNotificationsModal()
+  els.notificationsModal.showModal()
+}))
+
+els.btnCloseNotificationsModal.addEventListener('click', () => {
+  els.notificationsModal.close()
+})
+
+let pendingAuthorizeParams: { port: string; name: string; challenge: string; state: string } | null = null
+
+async function openAuthorizeAgentModal(params: { port: string; name: string; challenge: string; state: string }): Promise<void> {
+  pendingAuthorizeParams = params
+  if (!currentUser) {
+    // Unauthenticated visitor -> open Sign In / Sign Up modal
+    els.authErrorBanner.style.display = 'none'
+    els.authStepEmail.style.display = 'block'
+    els.authStepRegister.style.display = 'none'
+    els.authStepCode.style.display = 'none'
+    if (!els.authModal.open) els.authModal.showModal()
+    return
+  }
+
+  els.authAgentClientName.textContent = params.name || 'AI Client (CLI / MCP)'
+  els.authAgentErrorBanner.style.display = 'none'
+  els.authAgentSuccessBox.style.display = 'none'
+  els.authAgentBtnRow.style.display = 'flex'
+  els.authAgentProjectMatrix.innerHTML = '<div style="color: var(--muted); padding: 8px;">Loading your projects...</div>'
+
+  if (!els.authorizeAgentModal.open) {
+    els.authorizeAgentModal.showModal()
+  }
+
+  try {
+    const res = await api<{ ok: true; projects: Array<{ id: string; name: string; slug: string; effectiveRole: string }> }>('GET', 'projects')
+    const userProjects = res.projects || []
+    if (userProjects.length === 0) {
+      els.authAgentProjectMatrix.innerHTML = '<div style="color: var(--muted); padding: 8px;">You do not belong to any projects yet. Create or join a project first.</div>'
+      return
+    }
+
+    els.authAgentProjectMatrix.innerHTML = userProjects.map((p) => {
+      const isOwner = p.effectiveRole === 'owner'
+      const isEditor = p.effectiveRole === 'editor' || isOwner
+      const isCommenter = p.effectiveRole === 'commenter' || isEditor
+
+      return `
+        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 4px; border-bottom: 1px solid var(--border);">
+          <div>
+            <b style="font-size: 12px;">${p.name}</b>
+            <div style="font-size: 11px; color: var(--muted);">${p.slug} • Your role: <b>${p.effectiveRole}</b></div>
+          </div>
+          <select class="agent-proj-scope-select" data-proj-id="${p.id}" style="font-size: 11px; border-radius: 4px; padding: 2px 6px; border: 1px solid var(--border); background: var(--bg); color: var(--fg);">
+            <option value="none">None (No Access)</option>
+            <option value="viewer">Viewer (Read only)</option>
+            <option value="commenter" ${!isCommenter ? 'disabled' : ''}>Commenter (Read & Comment)</option>
+            <option value="editor" ${!isEditor ? 'disabled' : ''} selected>Editor (Read, Edit & Comment)</option>
+          </select>
+        </div>
+      `
+    }).join('')
+  } catch (err) {
+    els.authAgentProjectMatrix.innerHTML = `<div style="color: #ef4444; font-size: 11px;">Error loading projects: ${err instanceof Error ? err.message : String(err)}</div>`
+  }
+}
+
+els.btnCancelAuthorizeAgent.addEventListener('click', () => {
+  els.authorizeAgentModal.close()
+  pendingAuthorizeParams = null
+})
+
+els.btnCloseAuthorizeAgentSuccess.addEventListener('click', () => {
+  els.authorizeAgentModal.close()
+  pendingAuthorizeParams = null
+})
+
+els.btnSubmitAuthorizeAgent.addEventListener('click', () => run(async () => {
+  if (!pendingAuthorizeParams) return
+  const { port, name, challenge, state } = pendingAuthorizeParams
+
+  const selects = els.authAgentProjectMatrix.querySelectorAll<HTMLSelectElement>('.agent-proj-scope-select')
+  const projectScopes: Array<{ projectId: string; maxRole: 'editor' | 'commenter' | 'viewer' }> = []
+
+  selects.forEach((sel) => {
+    const projId = sel.getAttribute('data-proj-id')
+    const roleVal = sel.value
+    if (projId && (roleVal === 'editor' || roleVal === 'commenter' || roleVal === 'viewer')) {
+      projectScopes.push({ projectId: projId, maxRole: roleVal })
+    }
+  })
+
+  try {
+    els.authAgentErrorBanner.style.display = 'none'
+    const res = await api<{ ok: true; code: string }>('POST', 'auth/agent-grants', {
+      body: {
+        agentName: name || 'CLI Agent',
+        codeChallenge: challenge,
+        projectScopes,
+      },
+    })
+
+    if (res.code) {
+      // Trigger callback to local loopback server
+      const callbackUrl = `http://127.0.0.1:${port}/callback?code=${encodeURIComponent(res.code)}&state=${encodeURIComponent(state)}`
+      
+      // Perform loopback fetch to trigger callback
+      fetch(callbackUrl, { mode: 'no-cors' }).catch(() => {})
+
+      els.authAgentBtnRow.style.display = 'none'
+      els.authAgentSuccessBox.style.display = 'block'
+      setStatus('✓ AI Agent authorized successfully')
+    }
+  } catch (err) {
+    els.authAgentErrorBanner.textContent = err instanceof Error ? err.message : String(err)
+    els.authAgentErrorBanner.style.display = 'block'
+  }
+}))
+
+async function handleUrlHashActions(): Promise<void> {
+  const hash = window.location.hash
+  if (hash.startsWith('#authorize-agent')) {
+    const queryPart = hash.includes('?') ? hash.split('?')[1] : ''
+    const params = new URLSearchParams(queryPart)
+    const port = params.get('port') || '0'
+    const name = params.get('name') || 'AI Agent'
+    const challenge = params.get('challenge') || ''
+    const state = params.get('state') || ''
+    if (port && challenge) {
+      await openAuthorizeAgentModal({ port, name, challenge, state })
+    }
+    return
+  }
+  if (hash === '#pending' || hash === '#notifications') {
+    if (currentUser) {
+      if (els.authModal.open) els.authModal.close()
+      await renderNotificationsModal()
+      if (!els.notificationsModal.open) els.notificationsModal.showModal()
+    } else {
+      // Unauthenticated visitor -> open Sign In / Sign Up modal
+      els.authErrorBanner.style.display = 'none'
+      els.authStepEmail.style.display = 'block'
+      els.authStepRegister.style.display = 'none'
+      els.authStepCode.style.display = 'none'
+      if (!els.authModal.open) els.authModal.showModal()
+    }
+  }
+}
+
+window.addEventListener('hashchange', () => {
+  handleUrlHashActions()
+})
+
 run(async () => {
   await refreshAuthUI()
   await boot()
+  await handleUrlHashActions()
 })
+
 
 

@@ -357,4 +357,90 @@ describe('AuthService, Multi-Email Identity & Usernames', () => {
       expect(updateRes.user.name).toBe('Admiral Grace')
     })
   })
+
+  describe('Agent Authorization, PKCE & Session Management (Punto D)', () => {
+    it('creates a PKCE grant code, exchanges with verifier, and verifies 24h sliding idle & 7d absolute limits', async () => {
+      const { createHash } = await import('node:crypto')
+      // 1. Create user
+      const user = await store.createUser({ name: 'Alice Dev', username: 'alicedev', primaryEmail: 'alice@dev.org' })
+
+      // 2. Client generates PKCE verifier & challenge
+      const codeVerifier = 'high_entropy_random_pkce_verifier_string_123456789'
+      const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url')
+
+      // 3. User authorizes agent in web UI -> creates pending grant
+      const grant = await auth.createAgentGrantCode(user.id, {
+        agentName: 'Claude Desktop',
+        description: 'Local coding assistant on MacBook',
+        codeChallenge,
+        projectScopes: [
+          { projectId: 'proj-1', maxRole: 'editor' },
+          { projectId: 'proj-2', maxRole: 'viewer' },
+        ],
+      })
+
+      expect(grant.code).toBeDefined()
+      expect(grant.agentName).toBe('Claude Desktop')
+      expect(grant.projectScopes).toHaveLength(2)
+
+      // 4. Exchanging with wrong verifier fails
+      await expect(
+        auth.exchangeAgentCodeForToken(grant.code, 'wrong_verifier'),
+      ).rejects.toThrow('PKCE code verifier does not match challenge')
+
+      // Note: Re-try with valid verifier fails if consumed? In our implementation, a failed verification didn't consume or consumed?
+      // Since consume happens first, grant was consumed. Let's create a fresh grant for the successful exchange.
+      const grant2 = await auth.createAgentGrantCode(user.id, {
+        agentName: 'Claude Desktop',
+        codeChallenge,
+        projectScopes: [{ projectId: 'proj-1', maxRole: 'editor' }],
+      })
+
+      // 5. Successful exchange
+      const exchanged = await auth.exchangeAgentCodeForToken(grant2.code, codeVerifier)
+      expect(exchanged.token).toMatch(/^md4lp_agt_/)
+      expect(exchanged.session.agentName).toBe('Claude Desktop')
+      expect(exchanged.session.status).toBe('active')
+      expect(exchanged.session.idleTimeoutMs).toBe(24 * 60 * 60 * 1000)
+      expect(exchanged.session.absoluteExpiresAt).toBeGreaterThan(Date.now() + 6 * 24 * 60 * 60 * 1000)
+
+      // 6. Token validation
+      const validated = await auth.validateAgentToken(exchanged.token)
+      expect(validated).not.toBeNull()
+      expect(validated?.user.id).toBe(user.id)
+      expect(validated?.session.agentName).toBe('Claude Desktop')
+
+      // 7. Reusing authorization code fails
+      await expect(
+        auth.exchangeAgentCodeForToken(grant2.code, codeVerifier),
+      ).rejects.toThrow('Invalid, expired, or already used authorization code')
+
+      // 8. List active sessions for user
+      const sessions = await auth.listAgentSessionsForUser(user.id)
+      expect(sessions).toHaveLength(1)
+      expect(sessions[0]?.agentName).toBe('Claude Desktop')
+      expect(sessions[0]?.status).toBe('active')
+
+      // 9. Sliding idle timeout test: if lastUsedAt is older than 24h, session expires
+      const tokenHash = createHash('sha256').update(exchanged.token).digest('hex')
+      const internalSession = (store as any).agentSessions.get(tokenHash)
+      internalSession.lastUsedAt = Date.now() - (25 * 60 * 60 * 1000) // 25 hours ago
+
+      const expiredIdle = await auth.validateAgentToken(exchanged.token)
+      expect(expiredIdle).toBeNull()
+
+      // 10. Revocation test
+      const grant3 = await auth.createAgentGrantCode(user.id, {
+        agentName: 'Cursor AI',
+        codeChallenge,
+        projectScopes: [{ projectId: 'proj-1', maxRole: 'editor' }],
+      })
+      const exchanged3 = await auth.exchangeAgentCodeForToken(grant3.code, codeVerifier)
+      expect(await auth.validateAgentToken(exchanged3.token)).not.toBeNull()
+
+      const revoked = await auth.revokeAgentSession(user.id, exchanged3.session.id)
+      expect(revoked).toBe(true)
+      expect(await auth.validateAgentToken(exchanged3.token)).toBeNull()
+    })
+  })
 })

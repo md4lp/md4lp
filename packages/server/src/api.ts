@@ -10,6 +10,8 @@ import { resolveCaller } from './identity'
 import { AuthService } from './auth'
 import { TeamService } from './teams/service'
 import { MemoryTeamStore } from './teams/store'
+import { ProjectService } from './projects/service'
+import { MemoryProjectStore } from './projects/store'
 import * as schemas from './schemas'
 const SAMPLE: Record<string, string> = {
   'welcome.md': [
@@ -97,6 +99,7 @@ export interface AuthContext {
   userId?: string
   email?: string
   name?: string
+  agentSession?: import('./auth/types').AgentSession
 }
 
 export interface Api {
@@ -112,6 +115,7 @@ export interface Api {
   subscribe(listener: EventListener): () => void
   auth: AuthService
   teams: TeamService
+  projects: ProjectService
 }
 
 /** Minimal in-process pub/sub — the single serialization point already lives in @md4lp/repo (D18). */
@@ -139,6 +143,7 @@ export function createApi(
   config: Config = DEFAULT_CONFIG,
   auth: AuthService = new AuthService(),
   teams: TeamService = new TeamService(new MemoryTeamStore(), auth),
+  projects: ProjectService = new ProjectService(new MemoryProjectStore(), auth, teams, join(repoDir, '.projects')),
 ): Api {
   let cached: Promise<{ repo: RepoBackend; store: CommentStore }> | null = null
   const bus = createEventBus()
@@ -431,6 +436,27 @@ export function createApi(
           const invitations = await teams.listPendingInvitationsForUser(authContext.userId)
           return ok({ ok: true, invitations })
         }
+        case 'GET /api/teams/overview': {
+          if (!authContext?.userId) return unauthorized('authentication required')
+          const overview = await teams.listTeamsOverviewForUser(authContext.userId)
+          return ok({ ok: true, ...overview })
+        }
+        case 'GET /api/projects': {
+          if (!authContext?.userId) return unauthorized('authentication required')
+          const projectsList = await projects.listProjectsForUser(authContext.userId)
+          return ok({ ok: true, projects: projectsList })
+        }
+        case 'POST /api/projects': {
+          if (!authContext?.userId) return unauthorized('authentication required')
+          const b = schemas.createProjectBody.parse(body)
+          const project = await projects.createProject(authContext.userId, b)
+          return ok({ ok: true, project })
+        }
+        case 'GET /api/projects/invitations/pending': {
+          if (!authContext?.userId) return unauthorized('authentication required')
+          const invitations = await projects.listPendingInvitationsForUser(authContext.userId)
+          return ok({ ok: true, invitations })
+        }
         case 'GET /api/dev/outbox': {
           const to = query.get('to') ?? undefined
           const emails = await auth.outbox.getEmails(to)
@@ -440,7 +466,117 @@ export function createApi(
           await auth.outbox.clear()
           return ok({ ok: true })
         }
+        case 'POST /api/auth/agent-grants': {
+          if (!authContext?.userId) return unauthorized('authentication required')
+          const b = schemas.createAgentGrantBody.parse(body)
+          const grant = await auth.createAgentGrantCode(authContext.userId, b)
+          return ok({ ok: true, code: grant.code, expiresAt: grant.expiresAt })
+        }
+        case 'POST /api/auth/agent-token': {
+          const b = schemas.exchangeAgentTokenBody.parse(body)
+          try {
+            const res = await auth.exchangeAgentCodeForToken(b.code, b.codeVerifier)
+            return ok({
+              ok: true,
+              token: res.token,
+              tokenPrefix: res.session.tokenPrefix,
+              agentName: res.session.agentName,
+              projectScopes: res.session.projectScopes,
+              idleTimeoutMs: res.session.idleTimeoutMs,
+              absoluteExpiresAt: res.session.absoluteExpiresAt,
+            })
+          } catch (err) {
+            return badRequest(err instanceof Error ? err.message : String(err))
+          }
+        }
+        case 'GET /api/auth/agent-sessions': {
+          if (!authContext?.userId) return unauthorized('authentication required')
+          const sessions = await auth.listAgentSessionsForUser(authContext.userId)
+          return ok({ ok: true, sessions })
+        }
         default: {
+          const parts = pathname.split('/')
+
+          // Dynamic agent session routes
+          if (pathname.startsWith('/api/auth/agent-sessions/')) {
+            const sessionId = parts[4]
+            if (method === 'DELETE' && sessionId) {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const revoked = await auth.revokeAgentSession(authContext.userId, sessionId)
+              return ok({ ok: true, revoked })
+            }
+          }
+
+          // Dynamic project routes
+          if (pathname.startsWith('/api/projects/invitations/')) {
+            const invId = parts[4]
+            if (!invId) return badRequest('invitation id required')
+
+            if (method === 'POST' && parts[5] === 'accept') {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const b = schemas.acceptProjectInvitationBody.parse(body ?? {})
+              const res = await projects.acceptInvitation(authContext.userId, invId, b)
+              return ok(res)
+            }
+            if (method === 'POST' && parts[5] === 'reject') {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const res = await projects.rejectInvitation(authContext.userId, invId)
+              return ok(res)
+            }
+            if (method === 'DELETE' && !parts[5]) {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const res = await projects.revokeInvitation(authContext.userId, invId)
+              return ok(res)
+            }
+          }
+
+          if (pathname.startsWith('/api/projects/')) {
+            const parts = pathname.split('/')
+            const projectId = parts[3]
+            if (!projectId) return badRequest('project id required')
+
+            if (method === 'GET' && !parts[4]) {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const res = await projects.getProjectDetails(projectId, authContext.userId)
+              return ok({ ok: true, project: res })
+            }
+            if (method === 'POST' && parts[4] === 'invite') {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const b = schemas.inviteProjectMemberBody.parse(body)
+              const invitation = await projects.inviteToProject(authContext.userId, projectId, b)
+              return ok({ ok: true, invitation })
+            }
+            if (method === 'POST' && parts[4] === 'teams') {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const b = schemas.assignProjectTeamBody.parse(body)
+              const res = await projects.assignTeamToProject(authContext.userId, projectId, b.teamId, b.role ?? 'editor')
+              return ok(res)
+            }
+            if (method === 'DELETE' && parts[4] === 'teams' && parts[5]) {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const teamId = parts[5]
+              const res = await projects.removeTeamFromProject(authContext.userId, projectId, teamId)
+              return ok(res)
+            }
+            if (method === 'POST' && parts[4] === 'members' && parts[5] === 'remove') {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const b = schemas.removeProjectMemberBody.parse(body)
+              const res = await projects.removeMemberFromProject(authContext.userId, b.targetUserId, projectId, b.reverificationCode)
+              return ok(res)
+            }
+            if (method === 'POST' && parts[4] === 'context-email') {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const b = schemas.updateProjectContextEmailBody.parse(body)
+              const res = await projects.updateMemberContextEmail(authContext.userId, projectId, b.contextEmail)
+              return ok(res)
+            }
+            if (method === 'POST' && parts[4] === 'leave') {
+              if (!authContext?.userId) return unauthorized('authentication required')
+              const res = await projects.leaveProject(authContext.userId, projectId)
+              return ok(res)
+            }
+          }
+
           // Dynamic team routes
           if (pathname.startsWith('/api/teams/invitations/')) {
             const parts = pathname.split('/')
@@ -510,7 +646,7 @@ export function createApi(
     }
   }
 
-  return { handle, subscribe: bus.subscribe, auth, teams }
+  return { handle, subscribe: bus.subscribe, auth, teams, projects }
 }
 
 async function init(repoDir: string, config: Config): Promise<{ repo: RepoBackend; store: CommentStore }> {

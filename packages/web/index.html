@@ -124,9 +124,13 @@
       <span class="spacer"></span>
       <div id="authHeader">
         <button id="btnOpenAuth">Sign in (Email/Username OTP)</button>
-        <div id="userProfileBadge" style="display: none;">
-          <img id="userBadgeAvatar" style="display: none;" />
-          <span id="userBadgeName"></span>
+        <div id="userProfileBadge" style="display: none; align-items: center; gap: 8px;">
+          <img id="userBadgeAvatar" style="display: none; width: 24px; height: 24px; border-radius: 50%; object-fit: cover;" />
+          <span id="userBadgeName" style="font-weight: 500;"></span>
+          <button id="btnNotifications" title="Notifications & Action Center" style="position: relative; padding: 4px 8px;">
+            🔔<span id="notifBadge" style="display: none; background: #e53e3e; color: #fff; font-size: 10px; font-weight: 700; border-radius: 10px; padding: 1px 5px; margin-left: 3px;">0</span>
+          </button>
+          <button id="btnProjects">📁 Projects</button>
           <button id="btnTeams">👥 Teams</button>
           <button id="btnManageAccount">Account</button>
           <button id="btnLogout">Logout</button>
@@ -145,6 +149,31 @@
       <button data-act="comment">💬 Comment</button>
       <button data-act="suggest">✏️ Suggest change</button>
     </div>
+
+    <!-- Notifications & Action Center Modal -->
+    <dialog id="notificationsModal" style="max-width: 500px;">
+      <h3>🔔 Notifications & Pending Actions</h3>
+      <div id="notificationsContent" style="margin: 12px 0;">
+        <div id="notifEmptyMsg" style="display: none; padding: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; font-size: 13px; color: var(--muted);">
+          ✓ All caught up! You have no pending notifications or actions.
+        </div>
+        
+        <!-- Pending Team Invitations list -->
+        <div id="notifTeamInvsSection" style="display: none; margin-bottom: 12px;">
+          <h4 style="font-size: 13px; color: #f59e0b; margin: 0 0 6px;">👥 Pending Team Invitations (<span id="notifTeamInvsCount">0</span>)</h4>
+          <div id="notifTeamInvsList"></div>
+        </div>
+
+        <!-- Pending Project Invitations list -->
+        <div id="notifProjectInvsSection" style="display: none; margin-bottom: 12px;">
+          <h4 style="font-size: 13px; color: #f59e0b; margin: 0 0 6px;">📁 Pending Project Invitations (<span id="notifProjectInvsCount">0</span>)</h4>
+          <div id="notifProjectInvsList"></div>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top: 18px;">
+        <button id="btnCloseNotificationsModal">Close</button>
+      </div>
+    </dialog>
 
     <!-- Auth Modal (Login / Sign Up with OTP) -->
     <dialog id="authModal">
@@ -230,6 +259,12 @@
         <button id="btnSendAddCode" style="margin-top: 4px;">Send Verification Code</button>
       </div>
 
+      <!-- Connected AI Agents & MCP Sessions -->
+      <div style="margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--border);">
+        <h4 style="font-size: 13px; margin: 0 0 6px; color: #8b5cf6;">🤖 Connected AI Agents & MCP Sessions</h4>
+        <div id="connectedAgentsList" style="font-size: 12px;"></div>
+      </div>
+
       <div class="btn-row" style="margin-top: 18px;">
         <button id="btnCloseAccountModal">Close</button>
       </div>
@@ -282,6 +317,12 @@
       <h4 style="font-size: 13px; margin: 12px 0 6px;">Team Members (<span id="teamDetailMemberCount">0</span>)</h4>
       <div id="teamDetailMemberList"></div>
 
+      <!-- Pending Team Invitations (for admins/members) -->
+      <div id="teamDetailPendingInvsSection" style="display: none; margin-top: 12px;">
+        <h4 style="font-size: 13px; color: #f59e0b; margin: 0 0 6px;">📬 Pending Team Invitations (<span id="teamDetailPendingInvsCount">0</span>)</h4>
+        <div id="teamDetailPendingInvsList"></div>
+      </div>
+
       <!-- Private Team: Invite Form (for Admins) -->
       <div id="teamInviteSection" style="display: none; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border);">
         <h4 style="font-size: 13px; margin: 0 0 6px;">Invite a Member</h4>
@@ -310,6 +351,147 @@
       <div class="btn-row" style="margin-top: 18px;">
         <button id="btnLeaveTeam" style="color: #e53e3e; margin-right: auto;">Leave Team</button>
         <button id="btnCloseTeamDetailsModal">Close</button>
+      </div>
+    </dialog>
+
+    <!-- Projects Overview Modal -->
+    <dialog id="projectsModal" style="max-width: 520px;">
+      <h3>Projects & Repositories</h3>
+      <div id="projectsErrorBanner" class="dev-helper" style="display: none;"></div>
+
+      <!-- Pending Project Invitations -->
+      <div id="pendingProjInvsSection" style="display: none; margin-bottom: 14px; padding-bottom: 10px; border-bottom: 1px solid var(--border);">
+        <h4 style="font-size: 13px; color: #f59e0b; margin: 0 0 8px;">📬 Pending Project Invitations</h4>
+        <div id="pendingProjInvsList"></div>
+      </div>
+
+      <!-- Joined Projects -->
+      <h4 style="font-size: 13px; margin: 8px 0 6px;">Your Projects</h4>
+      <div id="joinedProjectsList" style="max-height: 200px; overflow-y: auto; margin-bottom: 16px;"></div>
+
+      <!-- Create Project Form -->
+      <h4 style="font-size: 13px; margin: 12px 0 6px;">Create a New Project</h4>
+      <div style="display: flex; flex-direction: column; gap: 6px;">
+        <input id="newProjectNameInput" type="text" placeholder="Project Name (e.g. Platform Docs)" style="margin: 0;" />
+        <input id="newProjectSlugInput" type="text" placeholder="Slug identifier (optional, e.g. platform-docs)" style="margin: 0;" />
+        <input id="newProjectDescInput" type="text" placeholder="Description (optional)" style="margin: 0;" />
+        <label style="font-size: 11px; font-weight: 600; margin-top: 4px;">Git Signature Context Email:</label>
+        <select id="newProjectContextEmailSelect" style="font-size: 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--fg); padding: 5px;"></select>
+        <button id="btnCreateProject" class="primary" style="margin-top: 4px;">Create Project</button>
+      </div>
+
+      <div class="btn-row" style="margin-top: 18px;">
+        <button id="btnCloseProjectsModal">Close</button>
+      </div>
+    </dialog>
+
+    <!-- Project Details / Management Modal -->
+    <dialog id="projectDetailsModal" style="max-width: 540px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <h3 id="projectDetailName" style="margin: 0;"></h3>
+        <span id="projectDetailRoleBadge" class="badge-primary" style="font-size: 11px; padding: 2px 8px; border-radius: 10px;"></span>
+      </div>
+      <div id="projectDetailSlug" style="font-size: 12px; color: var(--muted); margin-bottom: 6px;"></div>
+      <div id="projectDetailErrorBanner" class="dev-helper" style="display: none;"></div>
+
+      <!-- Git Context Email Selector for current user -->
+      <div id="projectContextEmailSection" style="margin: 10px 0; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px;">
+        <label style="font-size: 11px; font-weight: 600; display: block; margin-bottom: 4px;">Your Git Signature Email for this Project:</label>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <select id="projectMyContextEmailSelect" style="flex: 1; font-size: 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--fg); padding: 4px;"></select>
+          <button id="btnUpdateProjectContextEmail" style="font-size: 11px; padding: 4px 8px;">Update Signature Email</button>
+        </div>
+      </div>
+
+      <!-- Members list -->
+      <h4 style="font-size: 13px; margin: 12px 0 6px;">Direct Members (<span id="projectDetailMemberCount">0</span>)</h4>
+      <div id="projectDetailMemberList"></div>
+
+      <!-- Pending Invitations list (for owners/members) -->
+      <div id="projectDetailPendingInvsSection" style="display: none; margin-top: 12px;">
+        <h4 style="font-size: 13px; color: #f59e0b; margin: 0 0 6px;">📬 Pending Project Invitations (<span id="projectDetailPendingInvsCount">0</span>)</h4>
+        <div id="projectDetailPendingInvsList"></div>
+      </div>
+
+      <!-- Teams list -->
+      <h4 style="font-size: 13px; margin: 14px 0 6px;">Assigned Teams (<span id="projectDetailTeamCount">0</span>)</h4>
+      <div id="projectDetailTeamList"></div>
+
+      <!-- Owner Sections: Assign Team & Invite Member -->
+      <div id="projectOwnerSection" style="display: none; margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--border);">
+        <h4 style="font-size: 13px; margin: 0 0 6px;">Assign a Team</h4>
+        <div style="display: flex; gap: 6px; margin-bottom: 12px;">
+          <select id="projectAssignTeamSelect" style="flex: 1; font-size: 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--fg); padding: 4px;"></select>
+          <select id="projectAssignTeamRoleSelect" style="font-size: 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--fg); padding: 4px;">
+            <option value="editor">Editor</option>
+            <option value="commenter">Commenter</option>
+            <option value="viewer">Viewer</option>
+            <option value="owner">Owner</option>
+          </select>
+          <button id="btnAssignProjectTeam" class="primary">Assign</button>
+        </div>
+
+        <h4 style="font-size: 13px; margin: 0 0 6px;">Invite a Direct Member</h4>
+        <div style="display: flex; gap: 6px;">
+          <input id="projectInviteTargetInput" type="text" placeholder="@username or email" style="margin: 0; flex: 1;" />
+          <select id="projectInviteRoleSelect" style="font-size: 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--fg); padding: 4px;">
+            <option value="editor">Editor</option>
+            <option value="commenter">Commenter</option>
+            <option value="viewer">Viewer</option>
+            <option value="owner">Owner</option>
+          </select>
+          <button id="btnSendProjectInvite" class="primary">Invite</button>
+        </div>
+      </div>
+
+      <!-- Member Removal Re-verification Prompt (OTP required) -->
+      <div id="projectMemberRemovePrompt" style="display: none; margin-top: 14px; padding: 12px; background: #fff5f5; border: 1px solid #fed7d7; border-radius: 6px;">
+        <p style="font-size: 13px; margin: 0 0 4px; color: #c53030; font-weight: 600;">🔐 Operation Verification Required:</p>
+        <p style="font-size: 12px; margin: 0 0 8px; color: var(--muted);">A 6-digit verification code was sent to your email (<b id="projMemberRemoveTargetEmail"></b>). Enter it to confirm removing this project member (expires in 10 min):</p>
+        <div id="projMemberRemoveDevHelper" class="dev-helper" style="display: none;"></div>
+        <div style="display: flex; gap: 6px; align-items: center;">
+          <input id="projMemberRemoveCodeInput" type="text" placeholder="6-digit code" maxlength="6" style="margin: 0; width: 140px;" />
+          <button id="btnConfirmProjMemberRemove" style="background: #e53e3e; color: #fff; border-color: #e53e3e;">Confirm Removal</button>
+          <button id="btnCancelProjMemberRemove">Cancel</button>
+        </div>
+      </div>
+
+      <div class="btn-row" style="margin-top: 18px;">
+        <button id="btnLeaveProject" style="color: #e53e3e; border-color: #feb2b2; margin-right: auto;">Leave Project</button>
+        <button id="btnCloseProjectDetailsModal">Close</button>
+      </div>
+    </dialog>
+
+    <!-- Authorize Agent Consent Modal (PKCE Loopback) -->
+    <dialog id="authorizeAgentModal" style="max-width: 540px;">
+      <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px;">
+        <span style="font-size: 24px;">🤖</span>
+        <div>
+          <h3 style="margin: 0; font-size: 16px;">Authorize AI Agent</h3>
+          <p style="margin: 0; font-size: 12px; color: var(--muted);">An application is requesting access to md4lp on your behalf</p>
+        </div>
+      </div>
+      <div id="authAgentErrorBanner" class="dev-helper" style="display: none;"></div>
+
+      <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 6px; padding: 10px 12px; margin: 10px 0;">
+        <div style="font-size: 13px; font-weight: 600; margin-bottom: 2px;" id="authAgentClientName">AI Client</div>
+        <div style="font-size: 11px; color: var(--muted);">Loopback authorization for CLI / MCP client</div>
+      </div>
+
+      <h4 style="font-size: 13px; margin: 12px 0 6px;">Project Access & Permissions</h4>
+      <p style="font-size: 12px; color: var(--muted); margin: 0 0 8px;">Select the maximum role this agent may exercise in each of your projects:</p>
+      
+      <div id="authAgentProjectMatrix" style="max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 6px; padding: 6px;"></div>
+
+      <div id="authAgentSuccessBox" style="display: none; margin-top: 12px; padding: 12px; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; color: #065f46; font-size: 13px; text-align: center;">
+        <b>✅ Authorization Successful!</b>
+        <p style="margin: 4px 0 8px; font-size: 12px;">The credentials have been sent to your terminal. You can close this tab now.</p>
+        <button id="btnCloseAuthorizeAgentSuccess" style="font-size: 11px; padding: 4px 10px;">Close Window</button>
+      </div>
+
+      <div id="authAgentBtnRow" class="btn-row" style="margin-top: 18px;">
+        <button id="btnCancelAuthorizeAgent">Cancel</button>
+        <button id="btnSubmitAuthorizeAgent" class="primary">Authorize Agent</button>
       </div>
     </dialog>
 

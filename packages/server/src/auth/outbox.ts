@@ -37,6 +37,25 @@ export class EmailOutbox {
     return record
   }
 
+  async sendNotificationEmail(to: string, subject: string, body: string, purpose = 'notification'): Promise<OutboxEmail> {
+    const record: OutboxEmail = {
+      id: randomUUID(),
+      to: to.trim().toLowerCase(),
+      subject,
+      purpose,
+      code: '',
+      body,
+      sentAt: Date.now(),
+    }
+
+    this.emails.push(record)
+    if (process.env.NODE_ENV !== 'test') {
+      console.log(`[outbox] Notification email to ${to}: ${subject}`)
+    }
+
+    return record
+  }
+
   async getEmails(to?: string): Promise<OutboxEmail[]> {
     if (!to) return [...this.emails].reverse()
     const norm = to.trim().toLowerCase()

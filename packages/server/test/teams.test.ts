@@ -126,6 +126,66 @@ describe('TeamService — Private Teams, Domain Teams & Invitations (Punto de pa
       expect(inv2Record?.status).toBe('rejected')
     })
 
+    it('sends notification email to unregistered address and shows pending invitations in team details', async () => {
+      const alice = await authStore.createUser({ name: 'Alice', username: 'alice', primaryEmail: 'alice@example.com' })
+      const team = await teams.createPrivateTeam(alice.id, 'Core Platform')
+
+      // Alice invites unregistered email
+      const inv = await teams.inviteToTeam(alice.id, team.id, { target: 'newcomer@partner.org', role: 'member' })
+      expect(inv.status).toBe('pending')
+
+      // Outbox notification email was sent with CTA
+      const emails = await auth.outbox.getEmails('newcomer@partner.org')
+      expect(emails).toHaveLength(1)
+      expect(emails[0]?.subject).toContain('Core Platform')
+      expect(emails[0]?.body).toContain('newcomer@partner.org')
+      expect(emails[0]?.body).toContain('Alice')
+
+      // Alice sees pending invitation in team details
+      const details = await teams.getTeamDetails(team.id, alice.id)
+      expect(details.pendingInvitations).toHaveLength(1)
+      expect(details.pendingInvitations?.[0]?.targetEmail).toBe('newcomer@partner.org')
+
+      // Alice revokes invitation
+      await teams.revokeInvitation(alice.id, inv.id)
+      const afterRevoke = await teams.getTeamDetails(team.id, alice.id)
+      expect(afterRevoke.pendingInvitations).toHaveLength(0)
+    })
+
+    it('prevents multiple active invitations to the same team and auto-resolves with the most permissive role', async () => {
+      const alice = await authStore.createUser({ name: 'Alice', username: 'alice', primaryEmail: 'alice@example.com' })
+      const team = await teams.createPrivateTeam(alice.id, 'Design Ops')
+
+      // Alice invites Bob via two distinct unregistered emails with different roles: member and admin
+      const inv1 = await teams.inviteToTeam(alice.id, team.id, { target: 'bob.personal@gmail.com', role: 'member' })
+      const inv2 = await teams.inviteToTeam(alice.id, team.id, { target: 'bob.work@company.com', role: 'admin' })
+
+      // Bob registers and verifies both emails
+      const bob = await authStore.createUser({ name: 'Bob', username: 'bob', primaryEmail: 'bob.personal@gmail.com' })
+      await authStore.addEmail(bob.id, 'bob.work@company.com', true)
+
+      // Bob lists pending invitations -> deduplicated to 1 invitation with the higher role 'admin'
+      const pending = await teams.listPendingInvitationsForUser(bob.id)
+      expect(pending).toHaveLength(1)
+      expect(pending[0]?.teamId).toBe(team.id)
+      expect(pending[0]?.role).toBe('admin')
+
+      // Bob accepts inv1 -> backend resolves to 'admin' (most permissive role among all pending invites)
+      const acceptRes = await teams.acceptInvitation(bob.id, inv1.id)
+      expect(acceptRes.team.members.find((m) => m.userId === bob.id)?.role).toBe('admin')
+
+      // Both invitations are now resolved as accepted
+      const inv1Record = await teamStore.getInvitation(inv1.id)
+      const inv2Record = await teamStore.getInvitation(inv2.id)
+      expect(inv1Record?.status).toBe('accepted')
+      expect(inv2Record?.status).toBe('accepted')
+
+      // Bob is an admin, trying to re-invite him fails
+      await expect(
+        teams.inviteToTeam(alice.id, team.id, { target: '@bob', role: 'member' }),
+      ).rejects.toThrow('already a member of this team with role admin')
+    })
+
     it('allows admins to remove members from private teams and prevents non-admins from removing members', async () => {
       const alice = await authStore.createUser({ name: 'Alice', username: 'alice', primaryEmail: 'alice@example.com' })
       const bob = await authStore.createUser({ name: 'Bob', username: 'bob', primaryEmail: 'bob@example.com' })

@@ -27,13 +27,28 @@ test('teams and invitations full lifecycle in browser (private teams, domain tea
   await page.locator('#btnCreateTeam').click()
   await expect(page.locator('#joinedTeamsList')).toContainText('Core Architecture')
 
-  // 3. Alice opens Team details and invites Bob (@bob_dev)
+  // 3. Alice opens Team details, invites Bob (@bob_dev) and external partner (partner@other.org)
   await page.locator('#joinedTeamsList').getByRole('button', { name: 'View / Manage' }).click()
   await expect(page.locator('#teamDetailsModal')).toBeVisible()
   await expect(page.locator('#teamDetailName')).toHaveText('Core Architecture')
 
   await page.locator('#teamInviteTargetInput').fill('bob_dev')
   await page.locator('#btnSendTeamInvite').click()
+  await expect(page.locator('#status')).toContainText('Invitation sent to bob_dev')
+
+  // Invite external email
+  await page.locator('#teamInviteTargetInput').fill('partner@other.org')
+  await page.locator('#btnSendTeamInvite').click()
+  await expect(page.locator('#status')).toContainText('Invitation sent to partner@other.org')
+
+  // Alice sees partner@other.org in pending invitations and revokes it
+  await expect(page.locator('#teamDetailPendingInvsSection')).toBeVisible()
+  await expect(page.locator('#teamDetailPendingInvsList')).toContainText('partner@other.org')
+  page.once('dialog', (d) => d.accept())
+  await page.locator('#teamDetailPendingInvsList div:has-text("partner@other.org") button:has-text("Revoke")').click()
+  await expect(page.locator('#status')).toContainText('Team invitation revoked')
+  await expect(page.locator('#teamDetailPendingInvsList')).not.toContainText('partner@other.org')
+
   await page.locator('#btnCloseTeamDetailsModal').click()
   await page.locator('#btnCloseTeamsModal').click()
 
@@ -54,8 +69,18 @@ test('teams and invitations full lifecycle in browser (private teams, domain tea
   await bobPage.locator('#btnVerifyCode').click()
   await expect(bobPage.locator('#userBadgeName')).toContainText('Bob Developer')
 
-  // 5. Bob opens Teams modal, sees pending invitation to "Core Architecture", and accepts it
-  await bobPage.locator('#btnTeams').click()
+  // 5. Bob sees notification bell badge count "1" -> clicks it -> opens Notifications Modal
+  await expect(bobPage.locator('#notifBadge')).toBeVisible()
+  await expect(bobPage.locator('#notifBadge')).toHaveText('1')
+
+  await bobPage.locator('#btnNotifications').click()
+  await expect(bobPage.locator('#notificationsModal')).toBeVisible()
+  await expect(bobPage.locator('#notifTeamInvsSection')).toBeVisible()
+  await expect(bobPage.locator('#notifTeamInvsList')).toContainText('Core Architecture')
+
+  // Bob clicks "Review / Go to Teams" -> opens Teams modal -> accepts invitation
+  await bobPage.locator('#notifTeamInvsList button:has-text("Review / Go to Teams")').click()
+  await expect(bobPage.locator('#teamsModal')).toBeVisible()
   await expect(bobPage.locator('#pendingInvsSection')).toBeVisible()
   await expect(bobPage.locator('#pendingInvsList')).toContainText('Core Architecture')
 
@@ -66,8 +91,11 @@ test('teams and invitations full lifecycle in browser (private teams, domain tea
   await expect(bobPage.locator('#availDomainTeamsSection')).toBeVisible()
   await expect(bobPage.locator('#availDomainTeamsList')).toContainText('acme.corp Team')
 
-  await bobPage.locator('#availDomainTeamsList').getByRole('button', { name: 'Join Team' }).click()
+  await bobPage.locator('#availDomainTeamsList').getByRole('button', { name: 'Join' }).click()
   await expect(bobPage.locator('#joinedTeamsList')).toContainText('acme.corp Team')
+
+  // Notification badge is now hidden (0 pending)
+  await expect(bobPage.locator('#notifBadge')).toBeHidden()
 
   // Cleanup
   await bobContext.close()

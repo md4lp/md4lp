@@ -311,6 +311,94 @@ describe('@md4lp/server HTTP', () => {
       })
       expect(meAfterLogout.status).toBe(401)
     })
+
+    it('manages agent sessions via REST API: grants, PKCE token exchange, listing, and revocation', async () => {
+      const { createHash } = await import('node:crypto')
+      const app = freshApp()
+
+      // 1. User registers & logs in
+      await app.request('/api/auth/request-code', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ identifier: 'dave@engineer.io', purpose: 'login', name: 'Dave' }),
+      })
+      const outboxRes = await app.request('/api/dev/outbox?to=dave@engineer.io')
+      const code = (await json(outboxRes)).emails[0].code
+      const loginRes = await app.request('/api/auth/verify-code', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ identifier: 'dave@engineer.io', code }),
+      })
+      const userToken = (await json(loginRes)).token
+
+      // 2. Client initiates PKCE
+      const codeVerifier = 'client_super_secret_pkce_verifier_9876543210'
+      const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url')
+
+      // 3. Create agent grant code
+      const grantRes = await app.request('/api/auth/agent-grants', {
+        method: 'POST',
+        headers: {
+          authorization: `Bearer ${userToken}`,
+          'content-type': 'application/json',
+        },
+        body: JSON.stringify({
+          agentName: 'Cursor IDE',
+          description: 'MacBook Pro AI editor',
+          codeChallenge,
+          projectScopes: [{ projectId: 'project-xyz', maxRole: 'editor' }],
+        }),
+      })
+      expect(grantRes.status).toBe(200)
+      const grantBody = await json(grantRes)
+      expect(grantBody.ok).toBe(true)
+      expect(grantBody.code).toBeDefined()
+
+      // 4. Exchange code for agent token
+      const tokenRes = await app.request('/api/auth/agent-token', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          code: grantBody.code,
+          codeVerifier,
+        }),
+      })
+      expect(tokenRes.status).toBe(200)
+      const tokenBody = await json(tokenRes)
+      expect(tokenBody.ok).toBe(true)
+      expect(tokenBody.token).toMatch(/^md4lp_agt_/)
+      expect(tokenBody.agentName).toBe('Cursor IDE')
+      const agentToken = tokenBody.token
+
+      // 5. User lists agent sessions
+      const listSessionsRes = await app.request('/api/auth/agent-sessions', {
+        headers: { authorization: `Bearer ${userToken}` },
+      })
+      expect(listSessionsRes.status).toBe(200)
+      const listBody = await json(listSessionsRes)
+      expect(listBody.sessions).toHaveLength(1)
+      expect(listBody.sessions[0].agentName).toBe('Cursor IDE')
+      const sessionId = listBody.sessions[0].id
+
+      // 6. Agent accesses API using Bearer md4lp_agt_...
+      const agentApiRes = await app.request('/api/projects', {
+        headers: { authorization: `Bearer ${agentToken}` },
+      })
+      expect(agentApiRes.status).toBe(200)
+
+      // 7. Revoke session
+      const revokeRes = await app.request(`/api/auth/agent-sessions/${sessionId}`, {
+        method: 'DELETE',
+        headers: { authorization: `Bearer ${userToken}` },
+      })
+      expect(revokeRes.status).toBe(200)
+
+      // 8. Access with revoked agent token fails (401)
+      const afterRevokeRes = await app.request('/api/projects', {
+        headers: { authorization: `Bearer ${agentToken}` },
+      })
+      expect(afterRevokeRes.status).toBe(401)
+    })
   })
 })
 

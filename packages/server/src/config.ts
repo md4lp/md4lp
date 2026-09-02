@@ -9,6 +9,7 @@ const UserConfigSchema = z.object({
 export const ConfigSchema = z.object({
   repoDir: z.string().optional(),
   port: z.number().int().min(1).max(65535).optional(),
+  appUrl: z.string().optional(),
   /** Edit-lock idle timeout (ms): no interaction for this long lets another editor take over (D20). */
   lockTimeoutMs: z.number().int().positive().optional(),
   users: z.record(z.string(), UserConfigSchema).default({}),
@@ -16,7 +17,12 @@ export const ConfigSchema = z.object({
 
 export type Config = z.infer<typeof ConfigSchema>
 
+export function getAppUrl(config?: Config): string {
+  return (process.env.MD4LP_APP_URL || config?.appUrl || 'http://localhost:5173').replace(/\/+$/, '')
+}
+
 export const DEFAULT_CONFIG: Config = {
+  appUrl: 'http://localhost:5173',
   users: {
     alice: { role: 'editor', email: 'alice@md4lp.local' },
     bob: { role: 'commenter', email: 'bob@md4lp.local' },
