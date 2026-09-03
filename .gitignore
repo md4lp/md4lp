@@ -22,3 +22,6 @@ playwright-report/
 
 # Graphify knowledge graph (generated, regenerable via `graphify .`)
 graphify-out/
+
+# local agent harness state
+.claude/
