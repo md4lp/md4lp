@@ -7,7 +7,7 @@ import { canonicalize } from '@md4lp/canonicalizer'
 import { z } from 'zod'
 import { type Config, DEFAULT_CONFIG } from './config'
 import { resolveCaller } from './identity'
-import { AuthService } from './auth'
+import { AuthService, MemoryAuthStore } from './auth'
 import { TeamService } from './teams/service'
 import { MemoryTeamStore } from './teams/store'
 import { ProjectService } from './projects/service'
@@ -141,10 +141,15 @@ function createEventBus(): { emit: EventListener; subscribe: Api['subscribe'] } 
 export function createApi(
   repoDir: string,
   config: Config = DEFAULT_CONFIG,
-  auth: AuthService = new AuthService(),
-  teams: TeamService = new TeamService(new MemoryTeamStore(), auth),
-  projects: ProjectService = new ProjectService(new MemoryProjectStore(), auth, teams, join(repoDir, '.projects')),
+  customAuth?: AuthService,
+  customTeams?: TeamService,
+  customProjects?: ProjectService,
 ): Api {
+  const stateDir = join(repoDir, '.md4lp')
+  const auth = customAuth ?? new AuthService(new MemoryAuthStore(join(stateDir, 'auth.json')))
+  const teams = customTeams ?? new TeamService(new MemoryTeamStore(join(stateDir, 'teams.json')), auth)
+  const projects = customProjects ?? new ProjectService(new MemoryProjectStore(join(stateDir, 'projects.json')), auth, teams, join(repoDir, '.projects'))
+
   let cached: Promise<{ repo: RepoBackend; store: CommentStore }> | null = null
   const bus = createEventBus()
 

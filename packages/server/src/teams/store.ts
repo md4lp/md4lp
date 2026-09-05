@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto'
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
 import type { Team, TeamInvitation, TeamInvitationStatus, TeamMember, TeamRole } from './types'
 
 export interface TeamStore {
@@ -31,6 +33,37 @@ export class MemoryTeamStore implements TeamStore {
   private members = new Map<string, TeamMember[]>() // teamId -> TeamMember[]
   private invitations = new Map<string, TeamInvitation>() // invitationId -> TeamInvitation
 
+  constructor(private persistPath?: string) {
+    if (persistPath && existsSync(persistPath)) {
+      try {
+        const raw = readFileSync(persistPath, 'utf-8')
+        const data = JSON.parse(raw)
+        if (data.teams) this.teams = new Map(Object.entries(data.teams))
+        if (data.domainTeams) this.domainTeams = new Map(Object.entries(data.domainTeams))
+        if (data.members) this.members = new Map(Object.entries(data.members))
+        if (data.invitations) this.invitations = new Map(Object.entries(data.invitations))
+      } catch (err) {
+        console.warn(`[TeamStore] Failed to load from ${persistPath}:`, err)
+      }
+    }
+  }
+
+  private save(): void {
+    if (!this.persistPath) return
+    try {
+      mkdirSync(dirname(this.persistPath), { recursive: true })
+      const data = {
+        teams: Object.fromEntries(this.teams.entries()),
+        domainTeams: Object.fromEntries(this.domainTeams.entries()),
+        members: Object.fromEntries(this.members.entries()),
+        invitations: Object.fromEntries(this.invitations.entries()),
+      }
+      writeFileSync(this.persistPath, JSON.stringify(data, null, 2), 'utf-8')
+    } catch (err) {
+      console.warn(`[TeamStore] Failed to save to ${this.persistPath}:`, err)
+    }
+  }
+
   async createTeam(name: string, type: 'private' | 'domain', createdBy: string, domain?: string): Promise<Team> {
     const id = randomUUID()
     const now = Date.now()
@@ -59,7 +92,7 @@ export class MemoryTeamStore implements TeamStore {
     if (type === 'domain' && normDomain) {
       this.domainTeams.set(normDomain, id)
     }
-
+    this.save()
     return { ...team }
   }
 
@@ -105,6 +138,7 @@ export class MemoryTeamStore implements TeamStore {
     }
 
     this.members.set(teamId, list)
+    this.save()
     return { ...member }
   }
 
@@ -112,6 +146,7 @@ export class MemoryTeamStore implements TeamStore {
     const list = this.members.get(teamId) ?? []
     const filtered = list.filter((m) => m.userId !== userId)
     this.members.set(teamId, filtered)
+    this.save()
   }
 
   async updateMemberRole(teamId: string, userId: string, role: TeamRole): Promise<void> {
@@ -119,6 +154,7 @@ export class MemoryTeamStore implements TeamStore {
     const member = list.find((m) => m.userId === userId)
     if (member) {
       member.role = role
+      this.save()
     }
   }
 
@@ -158,6 +194,7 @@ export class MemoryTeamStore implements TeamStore {
     }
 
     this.invitations.set(id, invitation)
+    this.save()
     return { ...invitation }
   }
 
@@ -175,6 +212,7 @@ export class MemoryTeamStore implements TeamStore {
     if (inv) {
       inv.status = status
       inv.resolvedAt = Date.now()
+      this.save()
     }
   }
 
@@ -182,6 +220,7 @@ export class MemoryTeamStore implements TeamStore {
     const inv = this.invitations.get(invitationId)
     if (inv) {
       inv.role = role
+      this.save()
     }
   }
 

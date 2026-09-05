@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto'
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
 import type {
   Project,
   ProjectMember,
@@ -49,6 +51,37 @@ export class MemoryProjectStore implements ProjectStore {
   private teamAssignments = new Map<string, ProjectTeamAssignment[]>() // key: projectId
   private invitations = new Map<string, ProjectInvitation>() // key: invitationId
 
+  constructor(private persistPath?: string) {
+    if (persistPath && existsSync(persistPath)) {
+      try {
+        const raw = readFileSync(persistPath, 'utf-8')
+        const data = JSON.parse(raw)
+        if (data.projects) this.projects = new Map(Object.entries(data.projects))
+        if (data.members) this.members = new Map(Object.entries(data.members))
+        if (data.teamAssignments) this.teamAssignments = new Map(Object.entries(data.teamAssignments))
+        if (data.invitations) this.invitations = new Map(Object.entries(data.invitations))
+      } catch (err) {
+        console.warn(`[ProjectStore] Failed to load from ${persistPath}:`, err)
+      }
+    }
+  }
+
+  private save(): void {
+    if (!this.persistPath) return
+    try {
+      mkdirSync(dirname(this.persistPath), { recursive: true })
+      const data = {
+        projects: Object.fromEntries(this.projects.entries()),
+        members: Object.fromEntries(this.members.entries()),
+        teamAssignments: Object.fromEntries(this.teamAssignments.entries()),
+        invitations: Object.fromEntries(this.invitations.entries()),
+      }
+      writeFileSync(this.persistPath, JSON.stringify(data, null, 2), 'utf-8')
+    } catch (err) {
+      console.warn(`[ProjectStore] Failed to save to ${this.persistPath}:`, err)
+    }
+  }
+
   async createProject(data: Omit<Project, 'id' | 'createdAt' | 'updatedAt'>): Promise<Project> {
     const id = randomUUID()
     const now = Date.now()
@@ -61,6 +94,7 @@ export class MemoryProjectStore implements ProjectStore {
     this.projects.set(id, project)
     this.members.set(id, [])
     this.teamAssignments.set(id, [])
+    this.save()
     return project
   }
 
@@ -85,6 +119,7 @@ export class MemoryProjectStore implements ProjectStore {
       updatedAt: Date.now(),
     }
     this.projects.set(projectId, updated)
+    this.save()
     return updated
   }
 
@@ -94,7 +129,9 @@ export class MemoryProjectStore implements ProjectStore {
     for (const [invId, inv] of this.invitations.entries()) {
       if (inv.projectId === projectId) this.invitations.delete(invId)
     }
-    return this.projects.delete(projectId)
+    const res = this.projects.delete(projectId)
+    this.save()
+    return res
   }
 
   async listAllProjects(): Promise<Project[]> {
@@ -117,6 +154,7 @@ export class MemoryProjectStore implements ProjectStore {
       list.push(member)
     }
     this.members.set(projectId, list)
+    this.save()
     return member
   }
 
@@ -130,6 +168,7 @@ export class MemoryProjectStore implements ProjectStore {
     const m = list.find((item) => item.userId === userId)
     if (!m) return null
     m.role = role
+    this.save()
     return m
   }
 
@@ -138,6 +177,7 @@ export class MemoryProjectStore implements ProjectStore {
     const m = list.find((item) => item.userId === userId)
     if (!m) return null
     m.contextEmail = contextEmail
+    this.save()
     return m
   }
 
@@ -146,6 +186,7 @@ export class MemoryProjectStore implements ProjectStore {
     const initialLen = list.length
     const filtered = list.filter((m) => m.userId !== userId)
     this.members.set(projectId, filtered)
+    this.save()
     return filtered.length < initialLen
   }
 
@@ -179,6 +220,7 @@ export class MemoryProjectStore implements ProjectStore {
       list.push(assignment)
     }
     this.teamAssignments.set(projectId, list)
+    this.save()
     return assignment
   }
 
@@ -187,6 +229,7 @@ export class MemoryProjectStore implements ProjectStore {
     const initialLen = list.length
     const filtered = list.filter((t) => t.teamId !== teamId)
     this.teamAssignments.set(projectId, filtered)
+    this.save()
     return filtered.length < initialLen
   }
 
@@ -225,6 +268,7 @@ export class MemoryProjectStore implements ProjectStore {
       expiresAt: now + expiresInMs,
     }
     this.invitations.set(id, inv)
+    this.save()
     return inv
   }
 
@@ -241,6 +285,7 @@ export class MemoryProjectStore implements ProjectStore {
     const inv = this.invitations.get(invitationId)
     if (!inv) return null
     inv.status = status
+    this.save()
     return inv
   }
 
@@ -248,6 +293,7 @@ export class MemoryProjectStore implements ProjectStore {
     const inv = this.invitations.get(invitationId)
     if (!inv) return null
     inv.role = role
+    this.save()
     return inv
   }
 

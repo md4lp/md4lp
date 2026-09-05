@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { loginWithLoopback, loadAgentAuth, clearAgentAuth, runMcpStdio } from '../src/cli.js'
-import { createApi } from '../src/api.js'
-import { DEFAULT_CONFIG } from '../src/config.js'
+import { loginWithLoopback, loadAgentAuth, clearAgentAuth, runMcpStdio } from '../src/cli.ts'
+import { createApi } from '../src/api.ts'
+import { DEFAULT_CONFIG } from '../src/config.ts'
 
 const [,, command, ...args] = process.argv
 

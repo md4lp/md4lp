@@ -226,12 +226,27 @@ export function createMcpServer(api: Api, defaultAgentUser = DEFAULT_AGENT_USER)
 }
 
 export async function mountMcp(app: Hono, api: Api, agentUser = DEFAULT_AGENT_USER): Promise<void> {
-  const server = createMcpServer(api, agentUser)
-  const transport = new WebStandardStreamableHTTPServerTransport({
-    sessionIdGenerator: () => crypto.randomUUID(),
-  })
-  await server.connect(transport)
+  const transportMap = new Map<string, WebStandardStreamableHTTPServerTransport>()
 
-  app.all('/mcp', (c) => transport.handleRequest(c.req.raw))
+  app.all('/mcp', async (c) => {
+    const sessionId = c.req.header('mcp-session-id') || c.req.query('sessionId')
+    if (sessionId && transportMap.has(sessionId)) {
+      const transport = transportMap.get(sessionId)!
+      return transport.handleRequest(c.req.raw)
+    }
+
+    const transport = new WebStandardStreamableHTTPServerTransport({
+      sessionIdGenerator: () => crypto.randomUUID(),
+    })
+    const server = createMcpServer(api, agentUser)
+    await server.connect(transport)
+
+    const res = await transport.handleRequest(c.req.raw)
+    const newSessionId = res.headers.get('mcp-session-id')
+    if (newSessionId) {
+      transportMap.set(newSessionId, transport)
+    }
+    return res
+  })
 }
 

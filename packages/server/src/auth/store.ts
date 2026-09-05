@@ -1,4 +1,6 @@
 import { createHash, randomBytes, randomInt, randomUUID } from 'node:crypto'
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs'
+import { dirname } from 'node:path'
 import type {
   AgentProjectScope,
   AgentSession,
@@ -118,6 +120,43 @@ export class MemoryAuthStore implements AuthStore {
   private agentSessions = new Map<string, AgentSession>() // tokenHash -> AgentSession
   private codeSeq = 0
 
+  constructor(private persistPath?: string) {
+    if (persistPath && existsSync(persistPath)) {
+      try {
+        const raw = readFileSync(persistPath, 'utf-8')
+        const data = JSON.parse(raw)
+        if (data.users) this.users = new Map(Object.entries(data.users))
+        if (data.usernames) this.usernames = new Map(Object.entries(data.usernames))
+        if (data.userEmails) this.userEmails = new Map(Object.entries(data.userEmails))
+        if (data.verificationCodes) this.verificationCodes = new Map(Object.entries(data.verificationCodes))
+        if (data.sessions) this.sessions = new Map(Object.entries(data.sessions))
+        if (data.pendingAgentGrants) this.pendingAgentGrants = new Map(Object.entries(data.pendingAgentGrants))
+        if (data.agentSessions) this.agentSessions = new Map(Object.entries(data.agentSessions))
+      } catch (err) {
+        console.warn(`[AuthStore] Failed to load from ${persistPath}:`, err)
+      }
+    }
+  }
+
+  private save(): void {
+    if (!this.persistPath) return
+    try {
+      mkdirSync(dirname(this.persistPath), { recursive: true })
+      const data = {
+        users: Object.fromEntries(this.users.entries()),
+        usernames: Object.fromEntries(this.usernames.entries()),
+        userEmails: Object.fromEntries(this.userEmails.entries()),
+        verificationCodes: Object.fromEntries(this.verificationCodes.entries()),
+        sessions: Object.fromEntries(this.sessions.entries()),
+        pendingAgentGrants: Object.fromEntries(this.pendingAgentGrants.entries()),
+        agentSessions: Object.fromEntries(this.agentSessions.entries()),
+      }
+      writeFileSync(this.persistPath, JSON.stringify(data, null, 2), 'utf-8')
+    } catch (err) {
+      console.warn(`[AuthStore] Failed to save to ${this.persistPath}:`, err)
+    }
+  }
+
   async createUser(options: CreateUserOptions): Promise<UserWithEmails> {
     const normEmail = options.primaryEmail.trim().toLowerCase()
     if (!isEmailLike(normEmail)) {
@@ -163,6 +202,7 @@ export class MemoryAuthStore implements AuthStore {
     this.userEmails.set(userId, [emailRecord])
 
     this.transferVerifiedEmailFromOtherUsers(normEmail, userId)
+    this.save()
 
     return {
       ...user,
@@ -265,6 +305,7 @@ export class MemoryAuthStore implements AuthStore {
         if (user && user.status === 'suspended') {
           user.status = 'active'
         }
+        this.save()
       }
       return { ...existing }
     }
@@ -289,6 +330,7 @@ export class MemoryAuthStore implements AuthStore {
         user.status = 'active'
       }
     }
+    this.save()
 
     return { ...emailRecord }
   }
@@ -337,6 +379,7 @@ export class MemoryAuthStore implements AuthStore {
       if (user && user.status === 'suspended') {
         user.status = 'active'
       }
+      this.save()
     }
   }
 
@@ -352,6 +395,7 @@ export class MemoryAuthStore implements AuthStore {
     for (const e of emails) {
       e.isPrimary = e.email === normEmail
     }
+    this.save()
   }
 
   async removeEmail(userId: string, email: string): Promise<void> {
@@ -374,6 +418,7 @@ export class MemoryAuthStore implements AuthStore {
     }
 
     emails.splice(index, 1)
+    this.save()
   }
 
   async updateProfile(userId: string, updates: UpdateProfileOptions): Promise<UserWithEmails> {
@@ -402,6 +447,7 @@ export class MemoryAuthStore implements AuthStore {
       user.avatarUrl = updates.avatarUrl.trim() || undefined
     }
 
+    this.save()
     const full = await this.getUserWithEmails(userId)
     if (!full) throw new Error('User not found after update')
     return full
@@ -438,6 +484,7 @@ export class MemoryAuthStore implements AuthStore {
     }
 
     this.verificationCodes.set(id, record)
+    this.save()
     return { id, code, expiresAt }
   }
 
@@ -480,6 +527,7 @@ export class MemoryAuthStore implements AuthStore {
     const expectedHash = hashOtp(trimmedCode, latest.salt)
     if (expectedHash !== latest.codeHash) {
       latest.attemptsLeft -= 1
+      this.save()
       if (latest.attemptsLeft <= 0) {
         return { success: false, error: 'max_attempts_exceeded', attemptsLeft: 0 }
       }
@@ -488,6 +536,7 @@ export class MemoryAuthStore implements AuthStore {
 
     // Atomic consumption
     latest.consumedAt = now
+    this.save()
     return { success: true, metadata: latest.metadata }
   }
 
@@ -502,6 +551,7 @@ export class MemoryAuthStore implements AuthStore {
       createdAt: now,
     }
     this.sessions.set(token, session)
+    this.save()
     return { ...session }
   }
 
@@ -510,6 +560,7 @@ export class MemoryAuthStore implements AuthStore {
     if (!session) return null
     if (Date.now() > session.expiresAt) {
       this.sessions.delete(token)
+      this.save()
       return null
     }
     return { ...session }
@@ -517,6 +568,7 @@ export class MemoryAuthStore implements AuthStore {
 
   async revokeSession(token: string): Promise<void> {
     this.sessions.delete(token)
+    this.save()
   }
 
   async createPendingAgentGrant(
@@ -540,6 +592,7 @@ export class MemoryAuthStore implements AuthStore {
       createdAt: now,
     }
     this.pendingAgentGrants.set(code, grant)
+    this.save()
     return { ...grant }
   }
 
@@ -547,6 +600,7 @@ export class MemoryAuthStore implements AuthStore {
     const grant = this.pendingAgentGrants.get(code)
     if (!grant) return null
     this.pendingAgentGrants.delete(code)
+    this.save()
     if (Date.now() > grant.expiresAt) {
       return null
     }
@@ -584,6 +638,7 @@ export class MemoryAuthStore implements AuthStore {
     }
 
     this.agentSessions.set(data.tokenHash, session)
+    this.save()
     return { ...session }
   }
 
@@ -595,11 +650,13 @@ export class MemoryAuthStore implements AuthStore {
     // Check absolute expiration (7 days)
     if (now > session.absoluteExpiresAt) {
       session.status = 'revoked'
+      this.save()
       return null
     }
     // Check sliding idle timeout (24 hours)
     if (now - session.lastUsedAt > session.idleTimeoutMs) {
       session.status = 'revoked'
+      this.save()
       return null
     }
     if (session.status !== 'active') {
@@ -613,6 +670,7 @@ export class MemoryAuthStore implements AuthStore {
     for (const session of this.agentSessions.values()) {
       if (session.id === sessionId && session.status === 'active') {
         session.lastUsedAt = Date.now()
+        this.save()
         break
       }
     }
@@ -621,15 +679,20 @@ export class MemoryAuthStore implements AuthStore {
   async listAgentSessionsForUser(userId: string): Promise<AgentSession[]> {
     const now = Date.now()
     const result: AgentSession[] = []
+    let changed = false
     for (const session of this.agentSessions.values()) {
       if (session.userId === userId) {
         // Auto-mark expired
         if (now > session.absoluteExpiresAt || now - session.lastUsedAt > session.idleTimeoutMs) {
-          session.status = 'revoked'
+          if (session.status !== 'revoked') {
+            session.status = 'revoked'
+            changed = true
+          }
         }
         result.push({ ...session })
       }
     }
+    if (changed) this.save()
     return result.sort((a, b) => b.createdAt - a.createdAt)
   }
 
@@ -637,6 +700,7 @@ export class MemoryAuthStore implements AuthStore {
     for (const session of this.agentSessions.values()) {
       if (session.id === sessionId && session.userId === userId) {
         session.status = 'revoked'
+        this.save()
         return true
       }
     }

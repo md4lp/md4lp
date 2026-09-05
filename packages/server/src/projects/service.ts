@@ -1,4 +1,5 @@
 import path from 'node:path'
+import { existsSync } from 'node:fs'
 import { LocalGitBackend, type Author, type RepoBackend } from '@md4lp/repo'
 import { isEmailLike, normalizeUsername } from '../auth/store'
 import type { AuthService } from '../auth/service'
@@ -55,9 +56,15 @@ export class ProjectService {
   }
 
   async getProjectRepo(projectId: string): Promise<RepoBackend> {
-    const project = await this.store.getProject(projectId)
-    if (!project) throw new Error('Project not found')
-    return new LocalGitBackend(project.repoPath)
+    const project = (await this.store.getProject(projectId)) || (await this.store.getProjectBySlug(projectId))
+    if (project) {
+      return new LocalGitBackend(project.repoPath)
+    }
+    const directPath = path.join(this.reposBaseDir, projectId)
+    if (existsSync(directPath)) {
+      return new LocalGitBackend(directPath)
+    }
+    throw new Error('Project not found')
   }
 
   async createProject(
