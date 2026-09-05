@@ -12,6 +12,7 @@ import { TeamService } from './teams/service'
 import { MemoryTeamStore } from './teams/store'
 import { ProjectService } from './projects/service'
 import { MemoryProjectStore } from './projects/store'
+import { DocumentService } from './documents/service'
 import * as schemas from './schemas'
 const SAMPLE: Record<string, string> = {
   'welcome.md': [
@@ -87,8 +88,12 @@ export interface ApiResponse {
 export interface Md4lpEvent {
   type: 'doc' | 'comments' | 'lock'
   file: string
-  /** The user who caused the change. Clients ignore their own echoes (they already rendered locally). */
+  projectId?: string
+  documentId?: string
+  /** The user who caused the change. */
   by: string
+  /** Optional client ID to suppress echo on the originating client tab */
+  clientId?: string
   editor?: string | null
 }
 
@@ -99,6 +104,7 @@ export interface AuthContext {
   userId?: string
   email?: string
   name?: string
+  clientId?: string
   agentSession?: import('./auth/types').AgentSession
 }
 
@@ -116,6 +122,7 @@ export interface Api {
   auth: AuthService
   teams: TeamService
   projects: ProjectService
+  documents: DocumentService
 }
 
 /** Minimal in-process pub/sub — the single serialization point already lives in @md4lp/repo (D18). */
@@ -144,11 +151,13 @@ export function createApi(
   customAuth?: AuthService,
   customTeams?: TeamService,
   customProjects?: ProjectService,
+  customDocuments?: DocumentService,
 ): Api {
   const stateDir = join(repoDir, '.md4lp')
   const auth = customAuth ?? new AuthService(new MemoryAuthStore(join(stateDir, 'auth.json')))
   const teams = customTeams ?? new TeamService(new MemoryTeamStore(join(stateDir, 'teams.json')), auth)
   const projects = customProjects ?? new ProjectService(new MemoryProjectStore(join(stateDir, 'projects.json')), auth, teams, join(repoDir, '.projects'))
+  const documents = customDocuments ?? new DocumentService(projects, config.lockTimeoutMs ?? 30_000)
 
   let cached: Promise<{ repo: RepoBackend; store: CommentStore }> | null = null
   const bus = createEventBus()
@@ -226,7 +235,7 @@ export function createApi(
           const l = locks.get(path)
           if (!l || l.editor !== user) return locked(heldBy(path))
           const b = schemas.putFileBody.parse(body)
-          const content = canonicalize(b.content)
+          const content = b.content
           const oid = await repo.writeFiles(editBranch(path), [{ path, content }], b.message ?? `edit ${path}`, author)
           touch(path, user) // a save is interaction → keep the lock alive
           emit({ type: 'doc', file: path })
@@ -580,6 +589,189 @@ export function createApi(
               const res = await projects.leaveProject(authContext.userId, projectId)
               return ok(res)
             }
+            // Project Document Routes
+            if (method === 'GET' && parts[4] === 'tree') {
+              const branch = query.get('branch') || 'main'
+              const tree = await documents.listTree(projectId, branch)
+              return ok({ ok: true, projectId, branch, tree })
+            }
+            if (method === 'GET' && parts[4] === 'files') {
+              const branch = query.get('branch') || 'main'
+              const files = await documents.listFlatFiles(projectId, branch)
+              return ok({ ok: true, projectId, branch, files })
+            }
+            if (method === 'GET' && parts[4] === 'file') {
+              const docPath = query.get('path')
+              if (!docPath) return badRequest('document path required')
+              const branch = query.get('branch')
+              const doc = await documents.getDocument(projectId, docPath, branch || undefined)
+              return ok({ ok: true, ...doc })
+            }
+            if (method === 'PUT' && parts[4] === 'file') {
+              const docPath = query.get('path') || (isRecord(body) ? String(body.path ?? '') : '')
+              if (!docPath) return badRequest('document path required')
+              const b = schemas.putFileBody.parse(body)
+              const res = await documents.saveDraft(projectId, docPath, b.content, user, author, b.message)
+              emit({ type: 'doc', file: docPath, projectId, clientId: authContext?.clientId })
+              return ok({ ok: true, ...res })
+            }
+            if (method === 'POST' && parts[4] === 'lock' && parts[5] === 'acquire') {
+              const docPath = query.get('path') || (isRecord(body) ? String(body.path ?? '') : '')
+              if (!docPath) return badRequest('document path required')
+              const res = await documents.acquireLock(projectId, docPath, user, author, authContext?.agentSession?.id)
+              emit({ type: 'lock', file: docPath, projectId, editor: user, clientId: authContext?.clientId })
+              return ok({ ok: true, ...res })
+            }
+            if (method === 'POST' && parts[4] === 'lock' && parts[5] === 'heartbeat') {
+              const docPath = query.get('path') || (isRecord(body) ? String(body.path ?? '') : '')
+              if (!docPath) return badRequest('document path required')
+              documents.touchLock(projectId, docPath, user)
+              return ok({ ok: true, editor: user })
+            }
+            if (method === 'POST' && parts[4] === 'lock' && parts[5] === 'release') {
+              const docPath = query.get('path') || (isRecord(body) ? String(body.path ?? '') : '')
+              if (!docPath) return badRequest('document path required')
+              await documents.releaseLock(projectId, docPath, user, author)
+              emit({ type: 'doc', file: docPath, projectId, clientId: authContext?.clientId })
+              emit({ type: 'lock', file: docPath, projectId, editor: null, clientId: authContext?.clientId })
+              return ok({ ok: true })
+            }
+            if (method === 'POST' && parts[4] === 'documents' && parts[5] === 'create') {
+              const b = schemas.createDocumentBody.parse(body)
+              const res = await documents.createDocument(projectId, b.path, b.content, author, b.message)
+              emit({ type: 'doc', file: b.path, projectId, clientId: authContext?.clientId })
+              return ok({ ok: true, ...res })
+            }
+            if (method === 'POST' && parts[4] === 'documents' && parts[5] === 'rename') {
+              const b = schemas.renameDocumentBody.parse(body)
+              const res = await documents.renameDocument(projectId, b.oldPath, b.newPath, author, b.message)
+              emit({ type: 'doc', file: b.newPath, projectId, clientId: authContext?.clientId })
+              return ok({ ok: true, ...res })
+            }
+            if (method === 'POST' && parts[4] === 'documents' && parts[5] === 'delete') {
+              const b = schemas.deleteDocumentBody.parse(body)
+              const res = await documents.deleteDocument(projectId, b.path, author, b.message)
+              emit({ type: 'doc', file: b.path, projectId, clientId: authContext?.clientId })
+              return ok({ ok: true, ...res })
+            }
+            if (method === 'POST' && parts[4] === 'documents' && parts[5] === 'check-conflict') {
+              const docPath = query.get('path') || (isRecord(body) ? String(body.path ?? '') : '')
+              if (!docPath) return badRequest('document path required')
+              const res = await documents.checkPublishConflict(projectId, docPath, user)
+              return ok({ ok: true, ...res })
+            }
+            if (method === 'POST' && parts[4] === 'documents' && parts[5] === 'publish') {
+              const b = schemas.publishDocumentBody.parse(body)
+              try {
+                const res = await documents.publishDocument(projectId, b.path, user, author, {
+                  resolvedContent: b.resolvedContent,
+                  message: b.message,
+                })
+                emit({ type: 'doc', file: b.path, projectId, clientId: authContext?.clientId })
+                emit({ type: 'lock', file: b.path, projectId, editor: null, clientId: authContext?.clientId })
+                return ok({ ok: true, ...res })
+              } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err)
+                if (msg.includes('conflict detected')) {
+                  const preview = await documents.checkPublishConflict(projectId, b.path, user)
+                  return { status: 409, json: { error: msg, ...preview } }
+                }
+                throw err
+              }
+            }
+            // Project Comments & Suggestions routes
+            if (method === 'GET' && parts[4] === 'comments') {
+              const docPath = query.get('path')
+              if (!docPath) return badRequest('path required')
+              const repo = await projects.getProjectRepo(projectId)
+              const store = await documents.getCommentStore(projectId)
+              const mainMd = await repo.readFile('main', docPath).catch(() => '')
+              const branches = await repo.listBranches()
+              const commentBranches = branches.filter((b) => b.startsWith('comments/'))
+              const all: Array<{ owner: string; comment: Comment; resolution: AnchorResolution }> = []
+              
+              for (const cBranch of commentBranches) {
+                const creator = cBranch.replace('comments/', '')
+                const userComments = await store.list(cBranch, docPath, creator)
+                for (const comment of userComments) {
+                  const oldMd = await repo.readFile(comment.commit, docPath).catch(() => mainMd)
+                  const resolution = oldMd === mainMd ? resolveAnchor(mainMd, comment.anchor) : reanchor(oldMd, mainMd, comment.anchor)
+                  all.push({ owner: creator, comment, resolution })
+                }
+              }
+              return ok({ ok: true, comments: all })
+            }
+            if (method === 'POST' && parts[4] === 'comment') {
+              const docPath = query.get('path') || (isRecord(body) ? String(body.path ?? '') : '')
+              if (!docPath) return badRequest('path required')
+              const b = schemas.commentBody.parse(body)
+              const repo = await projects.getProjectRepo(projectId)
+              const store = await documents.getCommentStore(projectId)
+              const mainMd = await repo.readFile('main', docPath)
+              const anchor = createAnchor(mainMd, b.start, b.end)
+              const commit = (await repo.head('main'))!
+              const userBranch = commentsBranch(user)
+              // Ensure user's comment branch exists in project repo
+              const branches = await repo.listBranches()
+              if (!branches.includes(userBranch)) {
+                await repo.createBranch(userBranch, 'main')
+              }
+              const comment = await store.add(userBranch, docPath, user, author, { anchor, commit, body: b.body, suggestion: b.suggestion })
+              emit({ type: 'comments', file: docPath, projectId, clientId: authContext?.clientId })
+              return ok({ ok: true, comment })
+            }
+            if (method === 'POST' && parts[4] === 'reply') {
+              const docPath = query.get('path') || (isRecord(body) ? String(body.path ?? '') : '')
+              if (!docPath) return badRequest('path required')
+              const b = schemas.replyBody.parse(body)
+              const store = await documents.getCommentStore(projectId)
+              await store.addReply(commentsBranch(b.owner), docPath, b.owner, b.parentId, author, b.body)
+              emit({ type: 'comments', file: docPath, projectId, clientId: authContext?.clientId })
+              return ok({ ok: true })
+            }
+            if (method === 'POST' && parts[4] === 'react') {
+              const docPath = query.get('path') || (isRecord(body) ? String(body.path ?? '') : '')
+              if (!docPath) return badRequest('path required')
+              const b = schemas.reactBody.parse(body)
+              const store = await documents.getCommentStore(projectId)
+              await store.toggleReaction(commentsBranch(b.owner), docPath, b.owner, b.nodeId, author, b.emoji)
+              emit({ type: 'comments', file: docPath, projectId, clientId: authContext?.clientId })
+              return ok({ ok: true })
+            }
+            if (method === 'POST' && parts[4] === 'suggestion' && parts[5] === 'apply') {
+              const docPath = query.get('path') || (isRecord(body) ? String(body.path ?? '') : '')
+              if (!docPath) return badRequest('path required')
+              const holder = documents.getLockHolder(projectId, docPath)
+              if (holder && holder.editor !== user) {
+                return { status: 409, json: { error: `document is being edited by ${holder.editor}` } }
+              }
+              const b = schemas.suggestionRefBody.parse(body)
+              const repo = await projects.getProjectRepo(projectId)
+              const store = await documents.getCommentStore(projectId)
+              const comment = (await store.list(commentsBranch(b.owner), docPath, b.owner)).find((c) => c.id === b.commentId)
+              if (!comment || comment.suggestion === undefined) return { status: 400, json: { error: 'no such suggestion' } }
+              const mainMd = await repo.readFile('main', docPath)
+              const oldMd = await repo.readFile(comment.commit, docPath).catch(() => mainMd)
+              const res = oldMd === mainMd ? resolveAnchor(mainMd, comment.anchor) : reanchor(oldMd, mainMd, comment.anchor)
+              if (res.status === 'orphaned' || res.start === undefined || res.end === undefined) {
+                return { status: 409, json: { error: 'anchor lost; cannot apply suggestion' } }
+              }
+              const newMd = canonicalize(mainMd.slice(0, res.start) + comment.suggestion + mainMd.slice(res.end))
+              const oid = await repo.writeFiles('main', [{ path: docPath, content: newMd }], `apply suggestion ${b.commentId}`, author)
+              await store.setStatus(commentsBranch(b.owner), docPath, b.owner, author, b.commentId, 'resolved')
+              emit({ type: 'doc', file: docPath, projectId, clientId: authContext?.clientId })
+              emit({ type: 'comments', file: docPath, projectId, clientId: authContext?.clientId })
+              return ok({ ok: true, applied: true, oid })
+            }
+            if (method === 'POST' && parts[4] === 'suggestion' && parts[5] === 'reject') {
+              const docPath = query.get('path') || (isRecord(body) ? String(body.path ?? '') : '')
+              if (!docPath) return badRequest('path required')
+              const b = schemas.suggestionRefBody.parse(body)
+              const store = await documents.getCommentStore(projectId)
+              await store.setStatus(commentsBranch(b.owner), docPath, b.owner, author, b.commentId, 'resolved')
+              emit({ type: 'comments', file: docPath, projectId, clientId: authContext?.clientId })
+              return ok({ ok: true, rejected: true })
+            }
           }
 
           // Dynamic team routes
@@ -651,7 +843,7 @@ export function createApi(
     }
   }
 
-  return { handle, subscribe: bus.subscribe, auth, teams, projects }
+  return { handle, subscribe: bus.subscribe, auth, teams, projects, documents }
 }
 
 async function init(repoDir: string, config: Config): Promise<{ repo: RepoBackend; store: CommentStore }> {

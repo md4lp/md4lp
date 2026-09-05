@@ -42,6 +42,16 @@ export interface MergeResult {
   fastForward: boolean
 }
 
+export type TreeOperation =
+  | { type: 'putContent'; path: string; content: string }
+  | { type: 'putBlob'; path: string; blobOid: string }
+  | { type: 'delete'; path: string }
+
+export interface TreeTransactionResult {
+  commitOid: string
+  newHead: string
+}
+
 export interface RepoBackend {
   listBranches(): Promise<string[]>
   currentBranch(): Promise<string | undefined>
@@ -53,6 +63,13 @@ export interface RepoBackend {
   listFiles(branch: string): Promise<string[]>
   readFile(branch: string, path: string): Promise<string>
   writeFiles(branch: string, changes: FileChange[], message: string, author: Author): Promise<string>
+  applyTreeTransaction(
+    branch: string,
+    expectedHead: string | null,
+    ops: TreeOperation[],
+    message: string,
+    author: Author,
+  ): Promise<TreeTransactionResult>
   diff(a: string, b: string): Promise<DiffEntry[]>
   merge(from: string, into: string, author: Author): Promise<MergeResult>
   log(branch: string, depth?: number): Promise<CommitInfo[]>
@@ -237,6 +254,61 @@ export class LocalGitBackend implements RepoBackend {
     })
   }
 
+  async applyTreeTransaction(
+    branch: string,
+    expectedHead: string | null,
+    ops: TreeOperation[],
+    message: string,
+    author: Author,
+  ): Promise<TreeTransactionResult> {
+    if (ops.length === 0) throw new Error('applyTreeTransaction requires at least one operation')
+
+    return this.lock.run(async () => {
+      let parentOid: string | null = null
+      let rootTreeOid: string | null = null
+      try {
+        parentOid = await git.resolveRef({ fs, dir: this.dir, ref: branch })
+        const { commit } = await git.readCommit({ fs, dir: this.dir, oid: parentOid })
+        rootTreeOid = commit.tree
+      } catch {
+        // Branch does not exist yet
+      }
+
+      if (expectedHead !== null && parentOid !== expectedHead) {
+        throw new Error(`StaleHeadError: expected head ${expectedHead}, but branch head is ${parentOid}`)
+      }
+
+      for (const op of ops) {
+        const normPath = validateAndNormalizePosixPath(op.path)
+        const parts = normPath.split('/')
+        if (op.type === 'putContent') {
+          const blobOid = await git.writeBlob({ fs, dir: this.dir, blob: Buffer.from(op.content) })
+          rootTreeOid = await upsertFileInTree(this.dir, rootTreeOid, parts, blobOid)
+        } else if (op.type === 'putBlob') {
+          rootTreeOid = await upsertFileInTree(this.dir, rootTreeOid, parts, op.blobOid)
+        } else if (op.type === 'delete') {
+          rootTreeOid = await deleteFromTree(this.dir, rootTreeOid, parts)
+        }
+      }
+
+      const timestamp = Math.floor(Date.now() / 1000)
+      const commitOid = await git.writeCommit({
+        fs,
+        dir: this.dir,
+        commit: {
+          tree: rootTreeOid || (await git.writeTree({ fs, dir: this.dir, tree: [] })),
+          parent: parentOid ? [parentOid] : [],
+          author: { name: author.name, email: author.email, timestamp, timezoneOffset: 0 },
+          committer: { name: author.name, email: author.email, timestamp, timezoneOffset: 0 },
+          message,
+        },
+      })
+
+      await git.writeRef({ fs, dir: this.dir, ref: `refs/heads/${branch}`, value: commitOid, force: true })
+      return { commitOid, newHead: commitOid }
+    })
+  }
+
   log(branch: string, depth?: number): Promise<CommitInfo[]> {
     return this.lock.run(async () => {
       const commits = await git.log({ fs, dir: this.dir, cache: this.cache, ref: branch, depth })
@@ -248,6 +320,56 @@ export class LocalGitBackend implements RepoBackend {
       }))
     })
   }
+}
+
+function validateAndNormalizePosixPath(rawPath: string): string {
+  const p = rawPath.replace(/\\/g, '/').replace(/^\/+|\/+$/g, '')
+  if (!p) throw new Error('Path cannot be empty')
+  const segments = p.split('/')
+  for (const seg of segments) {
+    if (!seg || seg === '.' || seg === '..') {
+      throw new Error(`Invalid path segment "${seg}" in "${rawPath}"`)
+    }
+    if (seg === '.git' || seg.startsWith('.git/')) {
+      throw new Error(`Access to .git is forbidden: "${rawPath}"`)
+    }
+  }
+  return segments.join('/')
+}
+
+/**
+ * Recursively delete a file from a git tree. Cleans up empty parent directories.
+ */
+async function deleteFromTree(
+  dir: string,
+  treeOid: string | null,
+  pathParts: string[],
+): Promise<string | null> {
+  if (!treeOid) return null
+  const entries = [...(await git.readTree({ fs, dir, oid: treeOid })).tree]
+  const [name, ...rest] = pathParts
+  if (!name) return treeOid
+
+  if (rest.length === 0) {
+    const idx = entries.findIndex((e) => e.path === name)
+    if (idx >= 0) {
+      entries.splice(idx, 1)
+    }
+  } else {
+    const subTreeIdx = entries.findIndex((e) => e.path === name && e.type === 'tree')
+    if (subTreeIdx >= 0) {
+      const subTreeEntry = entries[subTreeIdx]!
+      const newSubOid = await deleteFromTree(dir, subTreeEntry.oid, rest)
+      if (newSubOid === null) {
+        entries.splice(subTreeIdx, 1) // prune empty directory
+      } else {
+        entries[subTreeIdx] = { mode: '040000', path: name, oid: newSubOid, type: 'tree' }
+      }
+    }
+  }
+
+  if (entries.length === 0) return null
+  return git.writeTree({ fs, dir, tree: entries })
 }
 
 /**

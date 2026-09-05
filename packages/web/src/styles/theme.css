@@ -1,0 +1,307 @@
+:root {
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+
+  /* Color Palette - Light Mode Default */
+  --bg-app: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-sidebar: #f1f5f9;
+  --bg-hover: #e2e8f0;
+  --bg-active: #cbd5e1;
+
+  --border-subtle: #e2e8f0;
+  --border-default: #cbd5e1;
+  --border-focus: #3b82f6;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --text-on-accent: #ffffff;
+
+  --accent-primary: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-subtle: #eff6ff;
+
+  --success-bg: #ecfdf5;
+  --success-text: #059669;
+  --success-border: #a7f3d0;
+
+  --warning-bg: #fffbeb;
+  --warning-text: #d97706;
+  --warning-border: #fde68a;
+
+  --danger-bg: #fef2f2;
+  --danger-text: #dc2626;
+  --danger-border: #fecaca;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+
+  --header-height: 56px;
+  --sidebar-width: 280px;
+  --drawer-width: 340px;
+}
+
+/* System Dark Mode */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg-app: #0f172a;
+    --bg-surface: #1e293b;
+    --bg-sidebar: #0f172a;
+    --bg-hover: #334155;
+    --bg-active: #475569;
+
+    --border-subtle: #334155;
+    --border-default: #475569;
+    --border-focus: #60a5fa;
+
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --text-on-accent: #ffffff;
+
+    --accent-primary: #3b82f6;
+    --accent-hover: #2563eb;
+    --accent-subtle: #1e3a8a;
+
+    --success-bg: #064e3b;
+    --success-text: #34d399;
+    --success-border: #047857;
+
+    --warning-bg: #451a03;
+    --warning-text: #fbbf24;
+    --warning-border: #78350f;
+
+    --danger-bg: #450a0a;
+    --danger-text: #f87171;
+    --danger-border: #7f1d1d;
+
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
+  }
+}
+
+/* Explicit Dark Mode Override */
+:root[data-theme="dark"] {
+  --bg-app: #0f172a;
+  --bg-surface: #1e293b;
+  --bg-sidebar: #0f172a;
+  --bg-hover: #334155;
+  --bg-active: #475569;
+
+  --border-subtle: #334155;
+  --border-default: #475569;
+  --border-focus: #60a5fa;
+
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --text-on-accent: #ffffff;
+
+  --accent-primary: #3b82f6;
+  --accent-hover: #2563eb;
+  --accent-subtle: #1e3a8a;
+
+  --success-bg: #064e3b;
+  --success-text: #34d399;
+  --success-border: #047857;
+
+  --warning-bg: #451a03;
+  --warning-text: #fbbf24;
+  --warning-border: #78350f;
+
+  --danger-bg: #450a0a;
+  --danger-text: #f87171;
+  --danger-border: #7f1d1d;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.5);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -2px rgba(0, 0, 0, 0.5);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.5);
+}
+
+/* Explicit Light Mode Override */
+:root[data-theme="light"] {
+  --bg-app: #f8fafc;
+  --bg-surface: #ffffff;
+  --bg-sidebar: #f1f5f9;
+  --bg-hover: #e2e8f0;
+  --bg-active: #cbd5e1;
+
+  --border-subtle: #e2e8f0;
+  --border-default: #cbd5e1;
+  --border-focus: #3b82f6;
+
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --text-on-accent: #ffffff;
+
+  --accent-primary: #2563eb;
+  --accent-hover: #1d4ed8;
+  --accent-subtle: #eff6ff;
+
+  --success-bg: #ecfdf5;
+  --success-text: #059669;
+  --success-border: #a7f3d0;
+
+  --warning-bg: #fffbeb;
+  --warning-text: #d97706;
+  --warning-border: #fde68a;
+
+  --danger-bg: #fef2f2;
+  --danger-text: #dc2626;
+  --danger-border: #fecaca;
+
+  --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  font-family: var(--font-sans);
+  background-color: var(--bg-app);
+  color: var(--text-primary);
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+#app {
+  width: 100%;
+  height: 100%;
+  background-color: var(--bg-app);
+}
+
+/* Common UI Components */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+
+.btn:hover {
+  background: var(--bg-hover);
+}
+
+.btn:active {
+  background: var(--bg-active);
+}
+
+.btn-primary {
+  background: var(--accent-primary);
+  color: var(--text-on-accent);
+  border-color: var(--accent-primary);
+}
+
+.btn-primary:hover {
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-secondary);
+}
+
+.btn-ghost:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.btn-danger {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+  border-color: var(--danger-border);
+}
+
+.btn-danger:hover {
+  background: var(--danger-text);
+  color: #ffffff;
+}
+
+.input {
+  width: 100%;
+  padding: 8px 12px;
+  font-family: inherit;
+  font-size: 13px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-default);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.input:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.badge-blue {
+  background: var(--accent-subtle);
+  color: var(--accent-primary);
+}
+
+.badge-green {
+  background: var(--success-bg);
+  color: var(--success-text);
+}
+
+.badge-orange {
+  background: var(--warning-bg);
+  color: var(--warning-text);
+}
+
+.badge-red {
+  background: var(--danger-bg);
+  color: var(--danger-text);
+}
+
+/* Modals */
+dialog {
+  border: none;
+  margin: auto;
+}
+
+dialog::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(2px);
+}

@@ -135,3 +135,5 @@ function commonSuffixLength(a: string, b: string): number {
   while (i < n && a[a.length - 1 - i] === b[b.length - 1 - i]) i++
   return i
 }
+
+export * from './diff3'

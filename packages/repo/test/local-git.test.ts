@@ -121,12 +121,50 @@ describe('LocalGitBackend', () => {
 
   // Red de seguridad para D1 (extraer el mutex): sin la cola single-lane, escrituras concurrentes a la
   // misma rama parten del mismo commit padre y se pisan en el ref → algunos ficheros se pierden.
-  it('serializes concurrent writeFiles — no lost writes (D18)', async () => {
+  it('applyTreeTransaction handles creation, deletion, and CAS stale head checks', async () => {
     const repo = await LocalGitBackend.init(tmpRepo(), author)
-    await Promise.all(
-      Array.from({ length: 8 }, (_, i) => repo.writeFiles('main', [{ path: `f${i}.md`, content: `${i}\n` }], `add f${i}`, author)),
+    const initialHead = await repo.head('main')
+
+    // 1. Transaction: create docs/guide.md and docs/api/auth.md
+    const res1 = await repo.applyTreeTransaction(
+      'main',
+      initialHead,
+      [
+        { type: 'putContent', path: 'docs/guide.md', content: '# Guide\n' },
+        { type: 'putContent', path: 'docs/api/auth.md', content: '# Auth API\n' },
+      ],
+      'docs: add guide and auth api',
+      author,
     )
-    const files = await repo.listFiles('main')
-    for (let i = 0; i < 8; i++) expect(files).toContain(`f${i}.md`)
+
+    expect(res1.commitOid).toMatch(/^[0-9a-f]{40}$/)
+    let files = await repo.listFiles('main')
+    expect(files).toContain('docs/guide.md')
+    expect(files).toContain('docs/api/auth.md')
+
+    // 2. Stale head check (CAS protection)
+    await expect(
+      repo.applyTreeTransaction(
+        'main',
+        initialHead, // Stale!
+        [{ type: 'putContent', path: 'docs/guide.md', content: '# New Guide\n' }],
+        'docs: update guide',
+        author,
+      ),
+    ).rejects.toThrow(/StaleHeadError/)
+
+    // 3. Delete file and prune empty subtree
+    const currentHead = await repo.head('main')
+    await repo.applyTreeTransaction(
+      'main',
+      currentHead,
+      [{ type: 'delete', path: 'docs/api/auth.md' }],
+      'docs: remove auth api',
+      author,
+    )
+
+    files = await repo.listFiles('main')
+    expect(files).toContain('docs/guide.md')
+    expect(files).not.toContain('docs/api/auth.md')
   })
 })

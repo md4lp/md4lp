@@ -196,5 +196,29 @@ export const exchangeAgentTokenBody = z.object({
   message: 'PKCE code verifier is required',
 })
 
+export const createDocumentBody = z.object({
+  path: z.string().min(1, 'Path is required'),
+  content: z.string().default(''),
+  message: z.string().optional(),
+})
+
+export const renameDocumentBody = z.object({
+  oldPath: z.string().min(1, 'Old path is required'),
+  newPath: z.string().min(1, 'New path is required'),
+  message: z.string().optional(),
+})
+
+export const deleteDocumentBody = z.object({
+  path: z.string().min(1, 'Path is required'),
+  message: z.string().optional(),
+})
 
 
+
+
+
+export const publishDocumentBody = z.object({
+  path: z.string().min(1, 'Path is required'),
+  resolvedContent: z.string().optional(),
+  message: z.string().optional(),
+})

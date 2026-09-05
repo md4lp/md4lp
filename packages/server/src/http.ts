@@ -53,6 +53,8 @@ export function createHttpApp(api: Api): Hono {
     let authContext: import('./api').AuthContext | undefined
     let user = url.searchParams.get('user') ?? c.req.header('x-md4lp-user')
 
+    const clientId = c.req.header('x-md4lp-client-id') ?? url.searchParams.get('clientId') ?? undefined
+
     if (sessionToken) {
       if (sessionToken.startsWith('md4lp_agt_')) {
         const agentResult = await api.auth.validateAgentToken(sessionToken)
@@ -62,6 +64,7 @@ export function createHttpApp(api: Api): Hono {
             userId: agentResult.user.id,
             email: agentResult.user.defaultEmail,
             name: `${agentResult.user.name} (via ${agentResult.session.agentName})`,
+            clientId,
             agentSession: agentResult.session,
           }
           if (!user) {
@@ -76,12 +79,15 @@ export function createHttpApp(api: Api): Hono {
             userId: authResult.user.id,
             email: authResult.currentEmail,
             name: authResult.user.name,
+            clientId,
           }
           if (!user) {
             user = authResult.user.name || authResult.user.defaultEmail || authResult.user.id
           }
         }
       }
+    } else if (clientId) {
+      authContext = { clientId }
     }
 
     user = user ?? DEFAULT_USER
