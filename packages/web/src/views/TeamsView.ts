@@ -1,5 +1,7 @@
 import { api, type UserProfile } from '../services/api'
 import { router } from '../router'
+import { i18n } from '../services/i18n'
+import { HeaderNav } from '../services/headerNav'
 
 export class TeamsView {
   private container: HTMLElement
@@ -7,47 +9,46 @@ export class TeamsView {
   private teams: any[] = []
   private domainTeams: any[] = []
   private activeTeamDetails: any | null = null
+  private headerNav: HeaderNav | null = null
 
   constructor(container: HTMLElement) {
     this.container = container
   }
 
   async render(): Promise<void> {
+    const t = i18n.t
+    this.headerNav = new HeaderNav(this.container, {
+      showProjectsLink: true,
+      showBack: true,
+      backTitle: t.common.back,
+      viewLabel: t.teams.title,
+      flashId: 'teamsHeaderFlash',
+    })
+
     this.container.innerHTML = `
       <div style="display: flex; height: 100vh; flex-direction: column; background: var(--bg-app);">
         
         <!-- Header -->
-        <header style="position: relative; height: var(--header-height); background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; padding: 0 24px;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <button id="btnBackFromTeams" class="btn btn-ghost" title="Back to Projects" style="font-size: 14px; padding: 4px 8px;">←</button>
-            <span style="font-size: 20px;">👥</span>
-            <span style="font-weight: 700; font-size: 16px; color: var(--text-primary);">Teams & Organizations</span>
-          </div>
-
-          <!-- Flash Banner in Header (Centered absolutely) -->
-          <div id="teamsHeaderFlash" style="display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); align-items: center; gap: 8px; font-size: 12px; font-weight: 500; padding: 6px 16px; border-radius: var(--radius-full); box-shadow: var(--shadow-sm); z-index: 10; pointer-events: none; transition: all 0.2s ease;"></div>
-
-          <button id="btnLogoutTeams" class="btn btn-ghost" style="font-size: 12px;">Sign Out</button>
-        </header>
+        ${this.headerNav.render()}
 
         <!-- Main Body -->
         <main style="flex: 1; overflow-y: auto; padding: 32px 24px; max-width: 900px; width: 100%; margin: 0 auto;">
           
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
             <div>
-              <h2 style="font-size: 20px; font-weight: 700; margin: 0 0 4px; color: var(--text-primary);">Your Teams</h2>
-              <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">Collaborate with groups across multiple projects.</p>
+              <h2 style="font-size: 20px; font-weight: 700; margin: 0 0 4px; color: var(--text-primary);">${t.teams.title}</h2>
+              <p style="font-size: 13px; color: var(--text-secondary); margin: 0;">${t.teams.subtitle}</p>
             </div>
-            <button id="btnOpenCreateTeam" class="btn btn-primary">+ Create Private Team</button>
+            <button id="btnOpenCreateTeam" class="btn btn-primary">${t.teams.createPrivateTeam}</button>
           </div>
 
           <!-- Create Team Inline Form -->
           <div id="createTeamCard" style="display: none; background: var(--bg-surface); border: 1px solid var(--accent-subtle); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 24px; box-shadow: var(--shadow-sm);">
-            <h3 style="font-size: 15px; font-weight: 600; margin: 0 0 12px;">New Private Team</h3>
+            <h3 style="font-size: 15px; font-weight: 600; margin: 0 0 12px;">${t.teams.newPrivateTeamTitle}</h3>
             <div style="display: flex; gap: 8px;">
-              <input id="inputNewTeamName" class="input" type="text" placeholder="e.g. Core Engineering" style="flex: 1;" />
-              <button id="btnCancelCreateTeam" class="btn btn-ghost">Cancel</button>
-              <button id="btnSubmitCreateTeam" class="btn btn-primary">Create Team</button>
+              <input id="inputNewTeamName" class="input" type="text" placeholder="${t.teams.teamNamePlaceholder}" style="flex: 1;" />
+              <button id="btnCancelCreateTeam" class="btn btn-ghost">${t.common.cancel}</button>
+              <button id="btnSubmitCreateTeam" class="btn btn-primary">${t.common.create}</button>
             </div>
           </div>
 
@@ -56,9 +57,9 @@ export class TeamsView {
 
           <!-- Section 2: Available Corporate Domain Teams (Auto-detected) -->
           <section id="domainTeamsSection" style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm);">
-            <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 6px; color: var(--accent-primary);">🏢 Corporate Domain Teams</h3>
+            <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 6px; color: var(--accent-primary);">${t.teams.domainTeamsTitle}</h3>
             <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 16px;">
-              Automatically created for your verified corporate emails. Join to collaborate with everyone in your domain.
+              ${t.teams.domainTeamsSubtitle}
             </p>
             <div id="domainTeamsList" style="display: flex; flex-direction: column; gap: 8px;"></div>
           </section>
@@ -77,23 +78,23 @@ export class TeamsView {
 
         <!-- Invite Member (if Admin) -->
         <div id="teamInviteMemberBox" style="margin-bottom: 16px; padding: 12px; background: var(--bg-app); border-radius: var(--radius-md); border: 1px solid var(--border-subtle);">
-          <label style="display: block; font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;">Invite Member</label>
+          <label style="display: block; font-size: 11px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;">${t.teams.inviteMember}</label>
           <div style="display: flex; gap: 6px;">
             <input id="inputInviteTarget" class="input" type="text" placeholder="@username or email" style="flex: 1; font-size: 12px;" />
             <select id="selectInviteRole" class="input" style="width: 100px; font-size: 12px;">
               <option value="member">Member</option>
               <option value="admin">Admin</option>
             </select>
-            <button id="btnSendInvite" class="btn btn-primary" style="font-size: 12px;">Invite</button>
+            <button id="btnSendInvite" class="btn btn-primary" style="font-size: 12px;">${t.teams.sendInvite}</button>
           </div>
         </div>
 
-        <h4 style="font-size: 13px; font-weight: 600; margin: 0 0 8px;">Members (<span id="modalMemberCount">0</span>)</h4>
+        <h4 style="font-size: 13px; font-weight: 600; margin: 0 0 8px;">${t.teams.members} (<span id="modalMemberCount">0</span>)</h4>
         <div id="modalMemberList" style="max-height: 200px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; margin-bottom: 20px;"></div>
 
         <div style="display: flex; justify-content: space-between; align-items: center; border-top: 1px solid var(--border-subtle); padding-top: 16px;">
           <button id="btnLeaveTeamAction" class="btn btn-danger" style="font-size: 12px;">Leave Team</button>
-          <button id="btnCloseTeamModal" class="btn btn-ghost">Close</button>
+          <button id="btnCloseTeamModal" class="btn btn-ghost">${t.common.close}</button>
         </div>
       </dialog>
     `
@@ -113,6 +114,10 @@ export class TeamsView {
 
       this.renderTeamsGrid()
       this.renderDomainTeams()
+
+      if (this.headerNav && this.user) {
+        this.headerNav.setUser(this.user, 0)
+      }
     } catch {
       router.navigate('/login')
     }
@@ -261,8 +266,12 @@ export class TeamsView {
   }
 
   private bindEvents(): void {
-    const btnBack = this.container.querySelector<HTMLButtonElement>('#btnBackFromTeams')!
-    const btnLogout = this.container.querySelector<HTMLButtonElement>('#btnLogoutTeams')!
+    if (this.headerNav) {
+      this.headerNav.bindEvents(() => {
+        this.render()
+      })
+    }
+
     const btnOpenCreate = this.container.querySelector<HTMLButtonElement>('#btnOpenCreateTeam')!
     const createCard = this.container.querySelector<HTMLElement>('#createTeamCard')!
     const btnCancelCreate = this.container.querySelector<HTMLButtonElement>('#btnCancelCreateTeam')!
@@ -275,12 +284,6 @@ export class TeamsView {
     const btnSendInvite = this.container.querySelector<HTMLButtonElement>('#btnSendInvite')!
     const inputInvite = this.container.querySelector<HTMLInputElement>('#inputInviteTarget')!
     const selectRole = this.container.querySelector<HTMLSelectElement>('#selectInviteRole')!
-
-    btnBack.addEventListener('click', () => router.navigate('/projects'))
-    btnLogout.addEventListener('click', async () => {
-      await api.logout()
-      router.navigate('/login')
-    })
 
     btnOpenCreate.addEventListener('click', () => {
       createCard.style.display = 'block'

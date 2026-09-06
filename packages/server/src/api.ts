@@ -119,6 +119,7 @@ export interface Api {
   ): Promise<ApiResponse>
   /** Subscribe to live events (SSE backing). Returns an unsubscribe function. */
   subscribe(listener: EventListener): () => void
+  emit(e: Md4lpEvent): void
   auth: AuthService
   teams: TeamService
   projects: ProjectService
@@ -843,7 +844,7 @@ export function createApi(
     }
   }
 
-  return { handle, subscribe: bus.subscribe, auth, teams, projects, documents }
+  return { handle, subscribe: bus.subscribe, emit: bus.emit, auth, teams, projects, documents }
 }
 
 async function init(repoDir: string, config: Config): Promise<{ repo: RepoBackend; store: CommentStore }> {

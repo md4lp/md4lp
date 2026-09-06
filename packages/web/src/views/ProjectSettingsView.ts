@@ -1,5 +1,7 @@
 import { api, type UserProfile } from '../services/api'
 import { router } from '../router'
+import { i18n } from '../services/i18n'
+import { HeaderNav } from '../services/headerNav'
 
 export class ProjectSettingsView {
   private container: HTMLElement
@@ -8,6 +10,7 @@ export class ProjectSettingsView {
   private project: any | null = null
   private availableTeams: any[] = []
   private authorizedAgents: any[] = []
+  private headerNav: HeaderNav | null = null
 
   constructor(container: HTMLElement, projectSlug: string) {
     this.container = container
@@ -15,37 +18,38 @@ export class ProjectSettingsView {
   }
 
   async render(): Promise<void> {
+    const t = i18n.t
+    this.headerNav = new HeaderNav(this.container, {
+      showProjectsLink: true,
+      showBack: true,
+      backTitle: t.common.back,
+      onBack: () => router.navigate(`/p/${this.projectSlug}`),
+      viewLabel: `
+        <span id="projSettingName" style="font-weight: 700; font-size: 14px; color: var(--text-primary);">${t.projectSettings.title}</span>
+        <span id="projSettingSlug" style="font-size: 12px; color: var(--text-muted); margin-left: 6px;"></span>
+      `,
+      flashId: 'projHeaderFlash',
+    })
+
     this.container.innerHTML = `
       <div style="display: flex; height: 100vh; flex-direction: column; background: var(--bg-app);">
         
         <!-- Header -->
-        <header style="position: relative; height: var(--header-height); background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; padding: 0 24px;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <button id="btnBackToWorkspace" class="btn btn-ghost" title="Back to Workspace" style="font-size: 14px; padding: 4px 8px;">←</button>
-            <span style="font-size: 20px;">👥</span>
-            <div>
-              <span id="projSettingName" style="font-weight: 700; font-size: 15px; color: var(--text-primary);">Share & Settings</span>
-              <span id="projSettingSlug" style="font-size: 12px; color: var(--text-muted); margin-left: 6px;"></span>
-            </div>
-          </div>
-
-          <!-- Flash Banner in Header (Centered absolutely) -->
-          <div id="projHeaderFlash" style="display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); align-items: center; gap: 8px; font-size: 12px; font-weight: 500; padding: 6px 16px; border-radius: var(--radius-full); box-shadow: var(--shadow-sm); z-index: 10; pointer-events: none; transition: all 0.2s ease;"></div>
-        </header>
+        ${this.headerNav.render()}
 
         <!-- Main Body -->
         <main style="flex: 1; overflow-y: auto; padding: 32px 24px; max-width: 800px; width: 100%; margin: 0 auto;">
 
           <!-- Section 1: Git Contextual Signature Email -->
           <section style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow-sm);">
-            <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 6px;">Git Author Signature</h3>
+            <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 6px;">${t.projectSettings.gitSignatureTitle}</h3>
             <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 12px;">
-              Select which verified email address signs your Git commits and document publications in this repository.
+              ${t.projectSettings.gitSignatureDesc}
             </p>
             
             <div style="display: flex; gap: 8px; align-items: center;">
               <select id="selectContextEmail" class="input" style="flex: 1; font-size: 13px;"></select>
-              <button id="btnUpdateContextEmail" class="btn btn-primary">Update Signature</button>
+              <button id="btnUpdateContextEmail" class="btn btn-primary">${t.projectSettings.updateSignature}</button>
             </div>
           </section>
 
@@ -53,8 +57,8 @@ export class ProjectSettingsView {
           <section style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow-sm);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
               <div>
-                <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 4px;">Direct Project Members</h3>
-                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">Invite individual users directly to this repository.</p>
+                <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 4px;">${t.projectSettings.directMembersTitle}</h3>
+                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">${t.projectSettings.directMembersDesc}</p>
               </div>
             </div>
 
@@ -62,12 +66,11 @@ export class ProjectSettingsView {
             <div id="inviteMemberRow" style="display: flex; gap: 6px; margin: 16px 0;">
               <input id="inputProjectInviteTarget" class="input" type="text" placeholder="@username or email" style="flex: 1; font-size: 12px;" />
               <select id="selectProjectInviteRole" class="input" style="width: 120px; font-size: 12px;">
-                <option value="editor">Editor</option>
-                <option value="commenter">Commenter</option>
-                <option value="viewer">Viewer</option>
-                <option value="owner">Owner</option>
+                <option value="editor">${t.projectSettings.roleEditor}</option>
+                <option value="commenter">${t.projectSettings.roleCommenter}</option>
+                <option value="owner">${t.projectSettings.roleOwner}</option>
               </select>
-              <button id="btnSendProjectInvite" class="btn btn-primary" style="font-size: 12px;">Invite</button>
+              <button id="btnSendProjectInvite" class="btn btn-primary" style="font-size: 12px;">${t.projectSettings.inviteDirectMember}</button>
             </div>
 
             <div id="projectMembersList" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px;"></div>
@@ -75,19 +78,18 @@ export class ProjectSettingsView {
 
           <!-- Section 3: Assigned Teams & Organizations -->
           <section style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow-sm);">
-            <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 6px;">Assigned Teams</h3>
+            <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 6px;">${t.projectSettings.teamsAccessTitle}</h3>
             <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 12px;">
-              Grant repository access to all members of a private or corporate domain team.
+              ${t.projectSettings.teamsAccessDesc}
             </p>
 
             <div id="assignTeamRow" style="display: flex; gap: 6px; margin-bottom: 16px;">
               <select id="selectAssignTeam" class="input" style="flex: 1; font-size: 12px;"></select>
               <select id="selectAssignTeamRole" class="input" style="width: 120px; font-size: 12px;">
-                <option value="editor">Editor</option>
-                <option value="commenter">Commenter</option>
-                <option value="viewer">Viewer</option>
+                <option value="editor">${t.projectSettings.roleEditor}</option>
+                <option value="commenter">${t.projectSettings.roleCommenter}</option>
               </select>
-              <button id="btnAssignTeam" class="btn btn-primary" style="font-size: 12px;">Assign Team</button>
+              <button id="btnAssignTeam" class="btn btn-primary" style="font-size: 12px;">${t.projectSettings.grantTeamAccess}</button>
             </div>
 
             <div id="projectAssignedTeamsList" style="display: flex; flex-direction: column; gap: 8px;"></div>
@@ -97,8 +99,8 @@ export class ProjectSettingsView {
           <section style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow-sm);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
               <div>
-                <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 4px; color: var(--accent-primary);">🤖 Authorized AI Agents (MCP)</h3>
-                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">Agents authorized to read, edit, or comment on this repository via MCP.</p>
+                <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 4px; color: var(--accent-primary);">🤖 ${t.settings.agentTokensTitle}</h3>
+                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">${t.settings.agentTokensDesc}</p>
               </div>
             </div>
 
@@ -107,28 +109,28 @@ export class ProjectSettingsView {
 
           <!-- Section 5: Leave Project (Danger Zone) -->
           <section style="background: var(--bg-surface); border: 1px solid var(--danger-border); border-radius: var(--radius-lg); padding: 24px; box-shadow: var(--shadow-sm);">
-            <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 4px; color: var(--danger-text);">Danger Zone</h3>
+            <h3 style="font-size: 15px; font-weight: 700; margin: 0 0 4px; color: var(--danger-text);">${t.projectSettings.dangerZoneTitle}</h3>
             <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 12px;">
-              Leaving this project will remove your direct membership and editing rights.
+              ${t.projectSettings.dangerZoneDesc}
             </p>
-            <button id="btnLeaveProjectAction" class="btn btn-danger" style="font-size: 12px;">Leave Project</button>
+            <button id="btnLeaveProjectAction" class="btn btn-danger" style="font-size: 12px;">${t.projectSettings.leaveProject}</button>
           </section>
 
         </main>
 
         <!-- Remove Member OTP Re-verification Dialog -->
         <dialog id="removeMemberOtpDialog" style="border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 24px; background: var(--bg-surface); color: var(--text-primary); max-width: 440px; width: 100%; box-shadow: var(--shadow-lg);">
-          <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 8px;">Remove Member</h3>
+          <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 8px;">${t.projectSettings.removeMember}</h3>
           <p id="removeMemberModalDesc" style="font-size: 13px; color: var(--text-secondary); margin: 0 0 16px; line-height: 1.4;">
-            To confirm removing member <b id="removeMemberTargetName"></b> from this repository, enter the verification code sent to your email.
+            ${t.projectSettings.removeMemberDesc} (<b id="removeMemberTargetName"></b>)
           </p>
 
           <div style="display: flex; flex-direction: column; gap: 12px;">
             <input id="inputRemoveMemberOtp" class="input" type="text" placeholder="6-digit verification code" style="font-size: 14px; text-align: center; letter-spacing: 2px;" maxlength="6" />
             
             <div style="display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px;">
-              <button id="btnCancelRemoveMemberOtp" class="btn btn-ghost" style="font-size: 12px;">Cancel</button>
-              <button id="btnConfirmRemoveMemberOtp" class="btn btn-danger" style="font-size: 12px;">Confirm Removal</button>
+              <button id="btnCancelRemoveMemberOtp" class="btn btn-ghost" style="font-size: 12px;">${t.common.cancel}</button>
+              <button id="btnConfirmRemoveMemberOtp" class="btn btn-danger" style="font-size: 12px;">${t.projectSettings.removeMember}</button>
             </div>
           </div>
         </dialog>
@@ -143,6 +145,10 @@ export class ProjectSettingsView {
     try {
       const meRes = await api.getMe()
       this.user = meRes.user
+
+      if (this.headerNav && this.user) {
+        this.headerNav.setUser(this.user, 0)
+      }
 
       const projsRes = await api.listProjects()
       const currentProj = projsRes.projects.find((p) => p.slug === this.projectSlug)
@@ -389,7 +395,12 @@ export class ProjectSettingsView {
   }
 
   private bindEvents(): void {
-    const btnBack = this.container.querySelector<HTMLButtonElement>('#btnBackToWorkspace')!
+    if (this.headerNav) {
+      this.headerNav.bindEvents(() => {
+        this.render()
+      })
+    }
+
     const btnUpdateEmail = this.container.querySelector<HTMLButtonElement>('#btnUpdateContextEmail')!
     const selectEmail = this.container.querySelector<HTMLSelectElement>('#selectContextEmail')!
 
@@ -407,8 +418,6 @@ export class ProjectSettingsView {
     const btnCancelOtp = this.container.querySelector<HTMLButtonElement>('#btnCancelRemoveMemberOtp')!
     const btnConfirmOtp = this.container.querySelector<HTMLButtonElement>('#btnConfirmRemoveMemberOtp')!
     const inputOtp = this.container.querySelector<HTMLInputElement>('#inputRemoveMemberOtp')!
-
-    btnBack.addEventListener('click', () => router.navigate(`/p/${this.projectSlug}`))
 
     btnUpdateEmail.addEventListener('click', async () => {
       const email = selectEmail.value

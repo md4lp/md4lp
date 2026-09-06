@@ -22,14 +22,12 @@ to every viewer over SSE (`/api/events`) — no manual save, no reload.
 
 Application code is written against an **approved spec** (see Workflow below).
 
-## Documentation
+## Documentation home
 
-- **Publishable docs live in this repository**: `README.md` (overview) and, as the project
-  approaches publication, a user guide, architecture, and CONTRIBUTING.
-- **Internal/dev design docs** — the feasibility analysis, decision log, roadmap, and phase specs —
-  are kept **privately in the maintainer's notes during development** and are intentionally **not**
-  in this repository. They are the source of truth for *how* and *why*; ask the maintainer if you
-  need them.
+This project is developed using a personal **second brain** for operational development control following the [agent-brain](https://github.com/juanyque/agent-brain) operating model.
+- **Publishable docs live in this repository**: `README.md` (overview) and, as the project approaches publication, a user guide, architecture, and CONTRIBUTING.
+- **Internal/dev design docs** — the feasibility analysis, decision log, roadmap, phase specs, and backlog — are kept **in the second brain (`WIP/md4lp/`)** and are intentionally **not** in this repository nor in local CLI scratch/artifact paths.
+- **Agent resolution**: Agents with the `brain` skill (e.g., via `/brain` or `$brain`) should resolve the brain home dynamically using `find_home.py` / `session_open.py` as defined in the agent-brain model, and document progress directly under `WIP/md4lp/` and the session lifecycle notes.
 
 ## How to work in this repo
 

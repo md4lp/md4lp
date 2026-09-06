@@ -307,6 +307,32 @@ describe('Project & Repository Management (@md4lp/server projects)', () => {
       expect(afterDelete).not.toContain('guides/setup.md')
       expect(afterDelete).toContain('reference/api/v1.md')
     })
+
+    it('moves an entire folder with all nested files recursively without blob/tree errors', async () => {
+      const alice = await authStore.createUser({ name: 'Alice', username: 'alice', primaryEmail: 'alice@corp.com' })
+      const project = await projects.createProject(alice.id, { name: 'Folder Move Test' })
+      const docService = new (await import('../src/documents/service')).DocumentService(projects)
+      const author = { name: 'Alice', email: 'alice@corp.com' }
+
+      // Create files in folder 'carpeta'
+      await docService.createDocument(project.id, 'carpeta/doc1.md', '# Doc 1', author)
+      await docService.createDocument(project.id, 'carpeta/sub/doc2.md', '# Doc 2', author)
+
+      // Move folder 'carpeta' to 'guias/carpeta'
+      const moveRes = await docService.renameDocument(project.id, 'carpeta', 'guias/carpeta', author)
+      expect(moveRes.commitOid).toBeDefined()
+
+      const files = await docService.listFlatFiles(project.id, 'main')
+      expect(files).toContain('guias/carpeta/doc1.md')
+      expect(files).toContain('guias/carpeta/sub/doc2.md')
+      expect(files).not.toContain('carpeta/doc1.md')
+      expect(files).not.toContain('carpeta/sub/doc2.md')
+
+      // Delete folder 'guias'
+      await docService.deleteDocument(project.id, 'guias', author)
+      const filesAfterDelete = await docService.listFlatFiles(project.id, 'main')
+      expect(filesAfterDelete).not.toContain('guias/carpeta/doc1.md')
+    })
   })
 
   describe('Document Publication & 3-Way Merge', () => {

@@ -141,6 +141,7 @@ export function createMcpServer(api: Api, defaultAgentUser = DEFAULT_AGENT_USER)
         message ?? `agent (${defaultAgentUser}): edit ${path}`,
         author,
       )
+      api.emit({ type: 'doc', file: path, projectId, by: defaultAgentUser })
       return { content: [{ type: 'text' as const, text: `committed ${String(oid).slice(0, 7)} to project ${projectId}` }] }
     }
     await call('POST', 'lock/acquire', { path })

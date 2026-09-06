@@ -340,27 +340,49 @@ export class DocumentService {
   ): Promise<{ commitOid: string }> {
     const repo = await this.projects.getProjectRepo(projectId)
     const head = await repo.head('main')
-    const content = await repo.readFile('main', oldPath)
     const registry = await this.loadDocumentRegistry(repo)
-
-    const docId = registry[oldPath] || crypto.randomUUID()
-    delete registry[oldPath]
-    registry[newPath] = docId
-
-    // Scan all other Markdown files to patch relative links pointing to oldPath
     const allFiles = (await repo.listFiles('main')).filter(isDocFile)
-    const ops: import('@md4lp/repo').TreeOperation[] = [
-      { type: 'delete', path: oldPath },
-      { type: 'putContent', path: newPath, content },
-      { type: 'putContent', path: '.md4lp/documents.json', content: JSON.stringify(registry, null, 2) },
-    ]
 
+    const isDirectFile = allFiles.includes(oldPath)
+    const matchingFiles = allFiles.filter((f) => f === oldPath || f.startsWith(`${oldPath}/`))
+
+    if (matchingFiles.length === 0) {
+      throw new Error(`Document or directory '${oldPath}' not found`)
+    }
+
+    const ops: import('@md4lp/repo').TreeOperation[] = []
+    const moves: Array<{ oldF: string; newF: string }> = []
+
+    for (const f of matchingFiles) {
+      const content = await repo.readFile('main', f)
+      const targetF = isDirectFile ? newPath : `${newPath}${f.slice(oldPath.length)}`
+
+      const docId = registry[f] || crypto.randomUUID()
+      delete registry[f]
+      registry[targetF] = docId
+
+      ops.push({ type: 'delete', path: f })
+      ops.push({ type: 'putContent', path: targetF, content })
+      moves.push({ oldF: f, newF: targetF })
+    }
+
+    ops.push({ type: 'putContent', path: '.md4lp/documents.json', content: JSON.stringify(registry, null, 2) })
+
+    // Scan all other Markdown files (not moved) to patch relative links pointing to moved paths
     for (const f of allFiles) {
-      if (f === oldPath) continue
-      const otherContent = await repo.readFile('main', f)
-      const patched = patchRelativeLinks(otherContent, f, oldPath, newPath)
-      if (patched !== otherContent) {
-        ops.push({ type: 'putContent', path: f, content: patched })
+      const isMoved = matchingFiles.includes(f)
+      if (isMoved) continue
+      let otherContent = await repo.readFile('main', f)
+      let modified = false
+      for (const move of moves) {
+        const patched = patchRelativeLinks(otherContent, f, move.oldF, move.newF)
+        if (patched !== otherContent) {
+          otherContent = patched
+          modified = true
+        }
+      }
+      if (modified) {
+        ops.push({ type: 'putContent', path: f, content: otherContent })
       }
     }
 
@@ -384,15 +406,24 @@ export class DocumentService {
     const repo = await this.projects.getProjectRepo(projectId)
     const head = await repo.head('main')
     const registry = await this.loadDocumentRegistry(repo)
-    delete registry[path]
+    const allFiles = (await repo.listFiles('main')).filter(isDocFile)
+    const matchingFiles = allFiles.filter((f) => f === path || f.startsWith(`${path}/`))
+
+    if (matchingFiles.length === 0) {
+      throw new Error(`Document or directory '${path}' not found`)
+    }
+
+    const ops: import('@md4lp/repo').TreeOperation[] = []
+    for (const f of matchingFiles) {
+      delete registry[f]
+      ops.push({ type: 'delete', path: f })
+    }
+    ops.push({ type: 'putContent', path: '.md4lp/documents.json', content: JSON.stringify(registry, null, 2) })
 
     const res = await repo.applyTreeTransaction(
       'main',
       head,
-      [
-        { type: 'delete', path },
-        { type: 'putContent', path: '.md4lp/documents.json', content: JSON.stringify(registry, null, 2) },
-      ],
+      ops,
       message ?? `delete ${path}`,
       author,
     )

@@ -1,12 +1,15 @@
 import { api, type UserProfile } from '../services/api'
 import { router } from '../router'
 import { themeManager, type ThemeMode } from '../services/theme'
+import { i18n, type SupportedLocale } from '../services/i18n'
+import { HeaderNav } from '../services/headerNav'
 
 export class SettingsView {
   private container: HTMLElement
   private user: UserProfile | null = null
   private agentSessions: any[] = []
   private projectsMap: Map<string, any> = new Map()
+  private headerNav: HeaderNav | null = null
 
   constructor(container: HTMLElement) {
     this.container = container
@@ -14,99 +17,124 @@ export class SettingsView {
 
   async render(): Promise<void> {
     const currentTheme = themeManager.getTheme()
+    const currentLocale = i18n.getLocale()
+    const t = i18n.t
+
+    this.headerNav = new HeaderNav(this.container, {
+      showProjectsLink: true,
+      showBack: true,
+      backTitle: t.settings.backTooltip,
+      viewLabel: t.settings.title,
+      flashId: 'settingsHeaderFlash',
+    })
 
     this.container.innerHTML = `
       <div style="display: flex; height: 100vh; flex-direction: column; background: var(--bg-app);">
         
         <!-- Header -->
-        <header style="position: relative; height: var(--header-height); background: var(--bg-surface); border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; padding: 0 24px;">
-          <div style="display: flex; align-items: center; gap: 12px;">
-            <button id="btnBackFromSettings" class="btn btn-ghost" title="Back to Projects" style="font-size: 14px; padding: 4px 8px;">←</button>
-            <span style="font-size: 20px;">⚙️</span>
-            <span style="font-weight: 700; font-size: 16px; color: var(--text-primary);">Settings & Account</span>
-          </div>
-
-          <!-- Flash Banner in Header (Centered absolutely) -->
-          <div id="settingsHeaderFlash" style="display: none; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); align-items: center; gap: 8px; font-size: 12px; font-weight: 500; padding: 6px 16px; border-radius: var(--radius-full); box-shadow: var(--shadow-sm); z-index: 10; pointer-events: none; transition: all 0.2s ease;"></div>
-
-          <button id="btnLogoutSettings" class="btn btn-ghost" style="font-size: 12px;">Sign Out</button>
-        </header>
+        ${this.headerNav.render()}
 
         <!-- Main Body -->
         <main style="flex: 1; overflow-y: auto; padding: 32px 24px; max-width: 800px; width: 100%; margin: 0 auto;">
 
           <!-- Section 0: Appearance / Theme Preference -->
           <section style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow-sm);">
-            <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 6px;">Appearance</h3>
+            <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 6px;">${t.settings.appearanceTitle}</h3>
             <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 16px;">
-              Customize how md4lp looks on your screen.
+              ${t.settings.appearanceDesc}
             </p>
 
-            <div style="display: flex; gap: 12px;">
+            <div style="display: flex; gap: 12px; margin-bottom: 24px;">
               <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 12px 16px; border: 1px solid var(--border-default); border-radius: var(--radius-md); cursor: pointer; background: var(--bg-app);">
                 <input type="radio" name="themeOption" value="system" ${currentTheme === 'system' ? 'checked' : ''} />
                 <div>
-                  <div style="font-size: 13px; font-weight: 600;">💻 System</div>
-                  <div style="font-size: 11px; color: var(--text-muted);">Follow operating system</div>
+                  <div style="font-size: 13px; font-weight: 600;">${t.settings.themeSystem}</div>
+                  <div style="font-size: 11px; color: var(--text-muted);">${t.settings.themeSystemDesc}</div>
                 </div>
               </label>
 
               <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 12px 16px; border: 1px solid var(--border-default); border-radius: var(--radius-md); cursor: pointer; background: var(--bg-app);">
                 <input type="radio" name="themeOption" value="light" ${currentTheme === 'light' ? 'checked' : ''} />
                 <div>
-                  <div style="font-size: 13px; font-weight: 600;">☀️ Light</div>
-                  <div style="font-size: 11px; color: var(--text-muted);">Clean crisp light theme</div>
+                  <div style="font-size: 13px; font-weight: 600;">${t.settings.themeLight}</div>
+                  <div style="font-size: 11px; color: var(--text-muted);">${t.settings.themeLightDesc}</div>
                 </div>
               </label>
 
               <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 12px 16px; border: 1px solid var(--border-default); border-radius: var(--radius-md); cursor: pointer; background: var(--bg-app);">
                 <input type="radio" name="themeOption" value="dark" ${currentTheme === 'dark' ? 'checked' : ''} />
                 <div>
-                  <div style="font-size: 13px; font-weight: 600;">🌙 Dark</div>
-                  <div style="font-size: 11px; color: var(--text-muted);">Focused dark theme</div>
+                  <div style="font-size: 13px; font-weight: 600;">${t.settings.themeDark}</div>
+                  <div style="font-size: 11px; color: var(--text-muted);">${t.settings.themeDarkDesc}</div>
                 </div>
               </label>
+            </div>
+
+            <!-- Language Sub-section -->
+            <div style="border-top: 1px solid var(--border-subtle); padding-top: 18px;">
+              <h4 style="font-size: 14px; font-weight: 700; margin: 0 0 4px;">${t.settings.languageTitle}</h4>
+              <p style="font-size: 12px; color: var(--text-secondary); margin: 0 0 14px;">
+                ${t.settings.languageDesc}
+              </p>
+
+              <div style="display: flex; gap: 12px;">
+                <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 12px 16px; border: 1px solid var(--border-default); border-radius: var(--radius-md); cursor: pointer; background: var(--bg-app);">
+                  <input type="radio" name="langOption" value="en" ${currentLocale === 'en' ? 'checked' : ''} />
+                  <div>
+                    <div style="font-size: 13px; font-weight: 600;">${t.settings.langEn}</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">${t.settings.langEnDesc}</div>
+                  </div>
+                </label>
+
+                <label style="flex: 1; display: flex; align-items: center; gap: 8px; padding: 12px 16px; border: 1px solid var(--border-default); border-radius: var(--radius-md); cursor: pointer; background: var(--bg-app);">
+                  <input type="radio" name="langOption" value="es" ${currentLocale === 'es' ? 'checked' : ''} />
+                  <div>
+                    <div style="font-size: 13px; font-weight: 600;">${t.settings.langEs}</div>
+                    <div style="font-size: 11px; color: var(--text-muted);">${t.settings.langEsDesc}</div>
+                  </div>
+                </label>
+              </div>
             </div>
           </section>
 
           <!-- Section 1: Profile Details -->
           <section style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow-sm);">
-            <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 16px;">Profile Information</h3>
+            <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 16px;">${t.settings.profileTitle}</h3>
             
             <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
               <div>
-                <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;">Display Name</label>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;">${t.settings.displayName}</label>
                 <input id="inputProfileName" class="input" type="text" />
               </div>
               <div>
-                <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;">Username (@handle)</label>
+                <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 4px;">${t.settings.username}</label>
                 <input id="inputProfileUsername" class="input" type="text" />
               </div>
             </div>
 
             <div style="display: flex; justify-content: flex-end;">
-              <button id="btnSaveProfileInfo" class="btn btn-primary">Save Profile</button>
+              <button id="btnSaveProfileInfo" class="btn btn-primary">${t.settings.saveProfile}</button>
             </div>
           </section>
 
           <!-- Section 2: Verified Email Addresses -->
           <section style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow-sm);">
-            <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 16px;">Verified Emails</h3>
+            <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 16px;">${t.settings.verifiedEmailsTitle}</h3>
             <div id="emailsListContainer" style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 16px;"></div>
 
             <!-- Add Email Input Inline -->
             <div style="border-top: 1px solid var(--border-subtle); padding-top: 16px;">
-              <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">Add another email address</label>
+              <label style="display: block; font-size: 12px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px;">${t.settings.addEmail}</label>
               <div style="display: flex; gap: 8px;">
                 <input id="inputNewEmail" class="input" type="email" placeholder="secondary@work.com" style="flex: 1;" />
-                <button id="btnAddEmail" class="btn btn-primary">Send OTP</button>
+                <button id="btnAddEmail" class="btn btn-primary">${t.settings.sendOtp}</button>
               </div>
 
               <div id="verifyNewEmailRow" style="display: none; margin-top: 12px; background: var(--bg-app); border: 1px solid var(--border-subtle); padding: 12px; border-radius: var(--radius-md);">
                 <div id="newEmailDevHelper" style="display: none; font-size: 11px; color: var(--warning-text); margin-bottom: 6px;"></div>
                 <div style="display: flex; gap: 8px; align-items: center;">
                   <input id="inputNewEmailCode" class="input" type="text" placeholder="6-digit code" maxlength="6" style="width: 140px; text-align: center; font-weight: 700;" />
-                  <button id="btnConfirmVerifyEmail" class="btn btn-primary" style="font-size: 12px;">Confirm Email</button>
+                  <button id="btnConfirmVerifyEmail" class="btn btn-primary" style="font-size: 12px;">${t.settings.confirmEmail}</button>
                 </div>
               </div>
             </div>
@@ -116,8 +144,8 @@ export class SettingsView {
           <section style="background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); padding: 24px; margin-bottom: 24px; box-shadow: var(--shadow-sm);">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
               <div>
-                <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 4px; color: var(--accent-primary);">🤖 Connected AI Agents (MCP)</h3>
-                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">Authorized terminal and CLI agent sessions with delegated repository access.</p>
+                <h3 style="font-size: 16px; font-weight: 700; margin: 0 0 4px; color: var(--accent-primary);">🤖 ${t.settings.agentTokensTitle}</h3>
+                <p style="font-size: 12px; color: var(--text-secondary); margin: 0;">${t.settings.agentTokensDesc}</p>
               </div>
             </div>
 
@@ -136,6 +164,10 @@ export class SettingsView {
     try {
       const meRes = await api.getMe()
       this.user = meRes.user
+
+      if (this.headerNav && this.user) {
+        this.headerNav.setUser(this.user, 0)
+      }
 
       const inputName = this.container.querySelector<HTMLInputElement>('#inputProfileName')!
       const inputUsername = this.container.querySelector<HTMLInputElement>('#inputProfileUsername')!
@@ -274,8 +306,12 @@ export class SettingsView {
   }
 
   private bindEvents(): void {
-    const btnBack = this.container.querySelector<HTMLButtonElement>('#btnBackFromSettings')!
-    const btnLogout = this.container.querySelector<HTMLButtonElement>('#btnLogoutSettings')!
+    if (this.headerNav) {
+      this.headerNav.bindEvents(() => {
+        this.render()
+      })
+    }
+
     const btnSaveProfile = this.container.querySelector<HTMLButtonElement>('#btnSaveProfileInfo')!
     const inputName = this.container.querySelector<HTMLInputElement>('#inputProfileName')!
     const inputUsername = this.container.querySelector<HTMLInputElement>('#inputProfileUsername')!
@@ -297,10 +333,15 @@ export class SettingsView {
       })
     })
 
-    btnBack.addEventListener('click', () => router.navigate('/projects'))
-    btnLogout.addEventListener('click', async () => {
-      await api.logout()
-      router.navigate('/login')
+    // Language Radios
+    const langRadios = this.container.querySelectorAll<HTMLInputElement>('input[name="langOption"]')
+    langRadios.forEach((radio) => {
+      radio.addEventListener('change', () => {
+        if (radio.checked) {
+          i18n.setLocale(radio.value as SupportedLocale)
+          this.render()
+        }
+      })
     })
 
     btnSaveProfile.addEventListener('click', async () => {
