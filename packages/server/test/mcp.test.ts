@@ -29,6 +29,7 @@ import { DEFAULT_CONFIG } from '../src/config'
 interface TestServer {
   port: number
   client: Client
+  api: import('../src/api').Api
   stop: () => Promise<void>
 }
 
@@ -52,7 +53,7 @@ async function startTestServer(repoDir: string): Promise<TestServer> {
       () => new Promise<void>((res, rej) => nodeServer.close((err) => (err ? rej(err) : res()))),
     )
 
-  return { port, client, stop }
+  return { port, client, api, stop }
 }
 
 const text = (result: Awaited<ReturnType<Client['callTool']>>): string =>
@@ -102,4 +103,35 @@ describe('@md4lp/server MCP (T6 AI-as-user)', () => {
     const agentComment = data.comments.find((c) => c.owner === 'agent-claude')
     expect(agentComment?.comment.body).toBe('agent comment')
   })
+
+  it('rename_file and delete_file in project emit tree events and update files', async () => {
+    const events: Array<{ type: string; file: string; projectId?: string }> = []
+    ts.api.subscribe((e) => events.push(e))
+
+    // Create user and project
+    const user = await ts.api.auth.store.createUser({ name: 'Alice', username: 'alice', primaryEmail: 'alice@test.com' })
+    const proj = await ts.api.projects.createProject(user.id, { name: 'Demo Proj', contextEmail: 'alice@test.com' })
+
+    // 1. write_file creates a document and emits doc and tree
+    await ts.client.callTool({
+      name: 'md4lp_write_file',
+      arguments: { projectId: proj.id, path: 'docs/guide.md', content: '# Guide\nInitial content' },
+    })
+    expect(events.some((e) => e.type === 'tree' && e.file === 'docs/guide.md')).toBe(true)
+
+    // 2. rename_file moves the document and emits doc and tree
+    await ts.client.callTool({
+      name: 'md4lp_rename_file',
+      arguments: { projectId: proj.id, oldPath: 'docs/guide.md', newPath: 'docs/handbook.md' },
+    })
+    expect(events.some((e) => e.type === 'tree' && e.file === 'docs/handbook.md')).toBe(true)
+
+    // 3. delete_file removes the document and emits tree
+    await ts.client.callTool({
+      name: 'md4lp_delete_file',
+      arguments: { projectId: proj.id, path: 'docs/handbook.md' },
+    })
+    expect(events.some((e) => e.type === 'tree' && e.file === 'docs/handbook.md')).toBe(true)
+  })
 })
+

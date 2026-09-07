@@ -10,6 +10,17 @@ import { locateRange } from '../highlight'
 import { router } from '../router'
 import { i18n } from '../services/i18n'
 import { HeaderNav } from '../services/headerNav'
+import mermaid from 'mermaid'
+import { crepeCallouts } from '../plugins/callouts'
+
+try {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'default',
+    securityLevel: 'loose',
+    fontFamily: 'inherit',
+  })
+} catch {}
 
 export class WorkspaceView {
   private container: HTMLElement
@@ -33,6 +44,9 @@ export class WorkspaceView {
   private pendingSelection: { start: number; end: number; quote: string } | null = null
   private headerNav: HeaderNav | null = null
   private canvasWidth: 'standard' | 'wide' | 'full' = 'standard'
+  private editSubMode: 'visual' | 'source' = 'visual'
+  private crepePreviewSeq = new WeakMap<(val: any) => void, number>()
+  private crepePreviewTimers = new WeakMap<(val: any) => void, any>()
 
   constructor(container: HTMLElement, projectSlug: string, initialDocPath?: string) {
     this.container = container
@@ -114,15 +128,15 @@ export class WorkspaceView {
                   <span id="canvasWidthLabel">${this.getCanvasWidthLabel()}</span>
                   <span style="font-size: 10px;">▾</span>
                 </button>
-                <div id="canvasWidthDropdown" style="display: none; position: absolute; right: 0; top: calc(100% + 4px); background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); padding: 4px; min-width: 170px; z-index: 50; flex-direction: column; gap: 2px;">
+                <div id="canvasWidthDropdown" style="display: none; position: absolute; right: 0; top: calc(100% + 4px); background: var(--bg-surface); border: 1px solid var(--border-default); border-radius: var(--radius-md); box-shadow: var(--shadow-lg); padding: 4px; min-width: 140px; z-index: 50; flex-direction: column; gap: 2px;">
                   <button class="btn btn-ghost btn-canvas-width-opt" data-width="standard" style="width: 100%; justify-content: flex-start; font-size: 12px; padding: 6px 10px; border-radius: var(--radius-sm);">
-                    <span>📏 ${t.workspace.widthStandard} (900px)</span>
+                    <span>📏 ${t.workspace.widthStandard}</span>
                   </button>
                   <button class="btn btn-ghost btn-canvas-width-opt" data-width="wide" style="width: 100%; justify-content: flex-start; font-size: 12px; padding: 6px 10px; border-radius: var(--radius-sm);">
-                    <span>📐 ${t.workspace.widthWide} (1240px)</span>
+                    <span>📐 ${t.workspace.widthWide}</span>
                   </button>
                   <button class="btn btn-ghost btn-canvas-width-opt" data-width="full" style="width: 100%; justify-content: flex-start; font-size: 12px; padding: 6px 10px; border-radius: var(--radius-sm);">
-                    <span>🖥️ ${t.workspace.widthFull} (100%)</span>
+                    <span>🖥️ ${t.workspace.widthFull}</span>
                   </button>
                 </div>
               </div>
@@ -146,6 +160,16 @@ export class WorkspaceView {
                 </div>
               </div>
 
+              <!-- Submode Toggle (Visual vs Source) in Edit Mode -->
+              <div id="editSubModeToggleGroup" class="btn-group" style="display: none; border: 1px solid var(--border-default); border-radius: var(--radius-sm); overflow: hidden;">
+                <button id="btnEditVisual" class="btn btn-primary" style="font-size: 11px; padding: 3px 8px;" title="${t.workspace.visualEditor}">
+                  <span>📝</span> <span>${t.workspace.visual}</span>
+                </button>
+                <button id="btnEditSource" class="btn btn-ghost" style="font-size: 11px; padding: 3px 8px;" title="${t.workspace.sourceEditor}">
+                  <span>📄</span> <span>${t.workspace.source}</span>
+                </button>
+              </div>
+
               <div id="saveStatusBadge" class="badge badge-blue" style="font-size: 11px; display: none;">${t.workspace.saved}</div>
               <button id="btnPublish" class="btn btn-primary" style="display: none; padding: 4px 12px; font-size: 12px;">
                 ${t.workspace.publishToMain}
@@ -153,13 +177,28 @@ export class WorkspaceView {
             </div>
 
             <!-- Read / Render Pane -->
-            <div id="readPane" style="flex: 1; overflow-y: auto; padding: 48px 48px 32px; width: 100%; margin: 0 auto; user-select: text;">
+            <div id="readPane" style="flex: 1; overflow-y: auto; overflow-x: hidden; padding: 48px 32px 32px; width: 100%; user-select: text;">
               <div id="readContent" class="prose"></div>
             </div>
 
-            <!-- Edit Pane (Crepe WYSIWYG) -->
-            <div id="editPane" style="flex: 1; overflow-y: auto; display: none; padding: 48px 32px 24px; width: 100%; margin: 0 auto;">
-              <div id="crepeContainer"></div>
+            <!-- Edit Pane (Crepe WYSIWYG & Source Markdown) -->
+            <div id="editPane" style="flex: 1; overflow-y: auto; overflow-x: hidden; display: none; padding: 48px 32px 32px; width: 100%;">
+              <div id="editContent">
+                <div id="crepeContainer"></div>
+                <div id="sourceContainer" style="display: none;">
+                  <div class="source-editor-toolbar">
+                    <div style="display: flex; align-items: center; gap: 6px;">
+                      <span class="badge badge-blue" style="font-size: 9px; padding: 1px 6px;">MARKDOWN</span>
+                      <span>${t.workspace.sourceEditorDescription}</span>
+                    </div>
+                    <div id="sourceLineCount" style="font-family: var(--font-mono); font-size: 10px; color: var(--text-muted);"></div>
+                  </div>
+                  <div class="source-editor-wrapper">
+                    <div id="sourceLineNumbers" class="source-line-numbers" aria-hidden="true"></div>
+                    <textarea id="sourceTextarea" class="source-textarea" spellcheck="false" placeholder="${t.workspace.sourcePlaceholder}"></textarea>
+                  </div>
+                </div>
+              </div>
             </div>
 
             <!-- Floating Selection Popover for Comments -->
@@ -338,7 +377,7 @@ export class WorkspaceView {
       }
 
       this.setupSSE()
-      this.setupTreePolling()
+      this.setupTreeSync()
     } catch (err) {
       console.error('Failed to init workspace:', err)
       router.navigate('/projects')
@@ -356,17 +395,34 @@ export class WorkspaceView {
     return null
   }
 
-  private treePollTimer: any = null
+  private docExistsInTree(items: DocumentTreeItem[], path: string): boolean {
+    for (const it of items) {
+      if (it.type === 'file' && it.path === path) return true
+      if (it.children && this.docExistsInTree(it.children, path)) return true
+    }
+    return false
+  }
 
-  private setupTreePolling(): void {
-    if (this.treePollTimer) clearInterval(this.treePollTimer)
-    // Poll every 5 seconds for background changes (agents, git commits)
-    this.treePollTimer = setInterval(() => {
+  private onFocusHandler = () => {
+    this.refreshTree()
+  }
+
+  private onVisibilityChangeHandler = () => {
+    if (typeof document !== 'undefined' && document.visibilityState === 'visible') {
       this.refreshTree()
-    }, 5000)
+    }
+  }
 
-    const onFocus = () => this.refreshTree()
-    window.addEventListener('focus', onFocus)
+  private onResizeHandler = () => {
+    this.updateAllBreakouts()
+  }
+
+  private setupTreeSync(): void {
+    window.addEventListener('focus', this.onFocusHandler)
+    window.addEventListener('resize', this.onResizeHandler)
+    if (typeof document !== 'undefined') {
+      document.addEventListener('visibilitychange', this.onVisibilityChangeHandler)
+    }
   }
 
   private isRefreshingTree = false
@@ -626,6 +682,9 @@ export class WorkspaceView {
     btnPublish.style.display = 'none'
     statusBadge.style.display = 'none'
 
+    const subModeToggle = this.container.querySelector<HTMLElement>('#editSubModeToggleGroup')
+    if (subModeToggle) subModeToggle.style.display = 'none'
+
     btnRead.classList.add('btn-primary')
     btnRead.classList.remove('btn-ghost')
     btnEdit.classList.add('btn-ghost')
@@ -665,6 +724,102 @@ export class WorkspaceView {
     if (label) {
       label.textContent = this.getCanvasWidthLabel()
     }
+
+    // Recalculate breakouts immediately with target column width
+    this.updateAllBreakouts()
+
+    // And recalculate again once CSS transitions complete (260ms)
+    setTimeout(() => {
+      this.updateAllBreakouts()
+    }, 260)
+  }
+
+  private updateBreakoutGeometry(wrapper: HTMLElement, isExpanded: boolean): void {
+    if (!isExpanded) {
+      wrapper.style.width = ''
+      wrapper.style.marginLeft = ''
+      wrapper.style.marginRight = ''
+      return
+    }
+
+    const readPane = this.container.querySelector<HTMLElement>('#readPane')
+    const readContent = this.container.querySelector<HTMLElement>('#readContent')
+    if (!readPane || !readContent) return
+
+    const paneWidth = Math.max(320, (readPane.clientWidth || window.innerWidth) - 64)
+
+    // Calculate target column width according to active canvasWidth mode, rather than mid-transition DOM clientWidth
+    let columnWidth = 780
+    if (this.canvasWidth === 'wide') {
+      columnWidth = Math.min(1200, paneWidth)
+    } else if (this.canvasWidth === 'full') {
+      columnWidth = paneWidth
+    } else {
+      columnWidth = Math.min(780, paneWidth)
+    }
+
+    const availableWidth = paneWidth
+
+    // If canvas is in full mode, no breakout is needed because the document already spans 100%
+    if (this.canvasWidth === 'full') {
+      wrapper.style.width = '100%'
+      wrapper.style.marginLeft = '0'
+      wrapper.style.marginRight = '0'
+      return
+    }
+
+    // Temporarily clear inline styles so we measure unconstrained natural width
+    wrapper.style.width = ''
+    wrapper.style.marginLeft = ''
+    wrapper.style.marginRight = ''
+
+    // Measure natural required width of the inner content
+    const table = wrapper.querySelector('table')
+    const pre = wrapper.querySelector('pre')
+    const code = wrapper.querySelector('pre code')
+    const mermaidSvg = wrapper.querySelector<SVGSVGElement>('.mermaid-preview svg, svg')
+
+    let naturalWidth = 0
+    if (table) {
+      naturalWidth = table.scrollWidth + 32
+    } else if (mermaidSvg) {
+      const viewBoxWidth = mermaidSvg.viewBox?.baseVal?.width || 0
+      const attrViewBox = mermaidSvg.getAttribute('viewBox')
+      const parsedW = attrViewBox ? parseFloat(attrViewBox.split(/[\s,]+/)[2] || '0') : 0
+      const styleMaxWidth = parseFloat(mermaidSvg.style.maxWidth || '0')
+      const scrollW = (mermaidSvg as unknown as HTMLElement).scrollWidth || 0
+      naturalWidth = Math.max(viewBoxWidth, parsedW, styleMaxWidth, scrollW) + 48
+    } else if (code) {
+      naturalWidth = code.scrollWidth + 48
+    } else if (pre) {
+      naturalWidth = pre.scrollWidth + 48
+    }
+
+    // If natural content is wider than column, fit to naturalWidth up to availableWidth
+    // If natural content fits within column, no negative margins needed (fits 100% of column)
+    const targetWidth = naturalWidth > columnWidth
+      ? Math.min(naturalWidth, availableWidth)
+      : Math.min(columnWidth + 240, availableWidth)
+
+    if (targetWidth > columnWidth) {
+      const shift = Math.max(0, Math.floor((targetWidth - columnWidth) / 2))
+      wrapper.style.width = `${targetWidth}px`
+      wrapper.style.marginLeft = `-${shift}px`
+      wrapper.style.marginRight = `-${shift}px`
+    } else {
+      wrapper.style.width = '100%'
+      wrapper.style.marginLeft = '0'
+      wrapper.style.marginRight = '0'
+    }
+  }
+
+  private updateAllBreakouts(): void {
+    const readContent = this.container.querySelector<HTMLElement>('#readContent')
+    if (!readContent) return
+    const breakouts = readContent.querySelectorAll<HTMLElement>('.breakout-wrapper.is-breakout')
+    breakouts.forEach((wrapper) => {
+      this.updateBreakoutGeometry(wrapper, true)
+    })
   }
 
   private enhanceBreakoutElements(): void {
@@ -705,6 +860,7 @@ export class WorkspaceView {
         e.stopPropagation()
         const isExpanded = wrapper.classList.toggle('is-breakout')
         btnText.textContent = isExpanded ? i18n.t.workspace.collapseWidth : i18n.t.workspace.expandWidth
+        this.updateBreakoutGeometry(wrapper, isExpanded)
       })
     })
 
@@ -714,14 +870,128 @@ export class WorkspaceView {
       if (pre.closest('.breakout-wrapper')) return
       const code = pre.querySelector('code')
       let lang = 'CODE'
+      let isMermaid = false
       if (code) {
         for (const cls of Array.from(code.classList)) {
           if (cls.startsWith('language-')) {
-            lang = cls.replace('language-', '').toUpperCase()
+            const parsedLang = cls.replace('language-', '').toLowerCase()
+            lang = parsedLang.toUpperCase()
+            if (parsedLang === 'mermaid') {
+              isMermaid = true
+            }
             break
           }
         }
       }
+
+      if (isMermaid) {
+        const wrapper = document.createElement('div')
+        wrapper.className = 'breakout-wrapper mermaid-breakout-wrapper'
+
+        const header = document.createElement('div')
+        header.className = 'breakout-header'
+        header.innerHTML = `
+          <div class="breakout-header-title">
+            <span>📈</span>
+            <span>${i18n.t.workspace.mermaidDiagram}</span>
+          </div>
+          <div class="breakout-actions">
+            <button type="button" class="btn btn-ghost btn-view-mode" title="${i18n.t.workspace.viewSource}" style="font-size: 11px; padding: 2px 6px;">
+              <span class="view-btn-icon">💻</span> <span class="view-btn-text">${i18n.t.workspace.viewSource}</span>
+            </button>
+            <button type="button" class="btn btn-ghost btn-copy-code" title="${i18n.t.common.copy}" style="font-size: 11px; padding: 2px 6px;">
+              <span>📋</span> <span class="copy-btn-text">${i18n.t.common.copy}</span>
+            </button>
+            <button type="button" class="btn btn-ghost btn-toggle-breakout" title="${i18n.t.workspace.toggleBreakoutTooltip}" style="font-size: 11px; padding: 2px 6px;">
+              <span>↔️</span> <span class="breakout-btn-text">${i18n.t.workspace.expandWidth}</span>
+            </button>
+          </div>
+        `
+        const body = document.createElement('div')
+        body.className = 'breakout-body'
+
+        const preview = document.createElement('div')
+        preview.className = 'mermaid-preview'
+
+        pre.parentNode?.insertBefore(wrapper, pre)
+        body.appendChild(preview)
+        body.appendChild(pre)
+        wrapper.appendChild(header)
+        wrapper.appendChild(body)
+
+        // Initially hide raw source for mermaid
+        pre.style.display = 'none'
+
+        const rawCode = (code ? code.textContent : pre.textContent) || ''
+        const diagramId = `mermaid-${Math.random().toString(36).slice(2, 9)}`
+        try {
+          mermaid.render(diagramId, rawCode.trim()).then(({ svg, bindFunctions }) => {
+            preview.innerHTML = svg
+            if (bindFunctions) {
+              bindFunctions(preview)
+            }
+            if (wrapper.classList.contains('is-breakout')) {
+              this.updateBreakoutGeometry(wrapper, true)
+            }
+          }).catch((err) => {
+            pre.style.display = 'block'
+            preview.innerHTML = `<div style="padding: 12px; color: var(--danger-text); font-size: 12px;">⚠️ ${err.message || 'Error rendering diagram'}</div>`
+          })
+        } catch (err: any) {
+          pre.style.display = 'block'
+          preview.innerHTML = `<div style="padding: 12px; color: var(--danger-text); font-size: 12px;">⚠️ ${err?.message || 'Error rendering diagram'}</div>`
+        }
+
+        const btnToggle = header.querySelector<HTMLButtonElement>('.btn-toggle-breakout')!
+        const btnText = header.querySelector<HTMLElement>('.breakout-btn-text')!
+        btnToggle.addEventListener('click', (e) => {
+          e.stopPropagation()
+          const isExpanded = wrapper.classList.toggle('is-breakout')
+          btnText.textContent = isExpanded ? i18n.t.workspace.collapseWidth : i18n.t.workspace.expandWidth
+          this.updateBreakoutGeometry(wrapper, isExpanded)
+        })
+
+        const btnView = header.querySelector<HTMLButtonElement>('.btn-view-mode')!
+        const viewText = header.querySelector<HTMLElement>('.view-btn-text')!
+        const viewIcon = header.querySelector<HTMLElement>('.view-btn-icon')!
+        let showingSource = false
+        btnView.addEventListener('click', (e) => {
+          e.stopPropagation()
+          showingSource = !showingSource
+          if (showingSource) {
+            pre.style.display = 'block'
+            preview.style.display = 'none'
+            viewText.textContent = i18n.t.workspace.viewDiagram
+            viewIcon.textContent = '👁️'
+          } else {
+            pre.style.display = 'none'
+            preview.style.display = 'flex'
+            viewText.textContent = i18n.t.workspace.viewSource
+            viewIcon.textContent = '💻'
+          }
+          if (wrapper.classList.contains('is-breakout')) {
+            this.updateBreakoutGeometry(wrapper, true)
+          }
+        })
+
+        const btnCopy = header.querySelector<HTMLButtonElement>('.btn-copy-code')!
+        const copyText = header.querySelector<HTMLElement>('.copy-btn-text')!
+        btnCopy.addEventListener('click', async (e) => {
+          e.stopPropagation()
+          try {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+              await navigator.clipboard.writeText(rawCode)
+            }
+            copyText.textContent = i18n.t.workspace.codeCopied
+            setTimeout(() => {
+              copyText.textContent = i18n.t.common.copy
+            }, 2000)
+          } catch {}
+        })
+
+        return
+      }
+
       const wrapper = document.createElement('div')
       wrapper.className = 'breakout-wrapper code-breakout-wrapper'
 
@@ -754,6 +1024,7 @@ export class WorkspaceView {
         e.stopPropagation()
         const isExpanded = wrapper.classList.toggle('is-breakout')
         btnText.textContent = isExpanded ? i18n.t.workspace.collapseWidth : i18n.t.workspace.expandWidth
+        this.updateBreakoutGeometry(wrapper, isExpanded)
       })
 
       const btnCopy = header.querySelector<HTMLButtonElement>('.btn-copy-code')!
@@ -802,17 +1073,92 @@ export class WorkspaceView {
         this.showFlash(err.message || 'Could not acquire edit lock', 'error')
       }
     } else {
-      if (this.crepe) {
-        const md = this.crepe.getMarkdown()
-        await api.saveDraft(this.projectId, this.docPath, md)
-        await api.releaseLock(this.projectId, this.docPath)
-        if (this.currentDoc) {
-          this.currentDoc.content = md
-        }
+      let md = ''
+      if (this.editSubMode === 'source') {
+        const sourceTextarea = this.container.querySelector<HTMLTextAreaElement>('#sourceTextarea')
+        md = sourceTextarea ? sourceTextarea.value : (this.currentDoc?.content || '')
+      } else if (this.crepe) {
+        md = this.crepe.getMarkdown()
+      } else {
+        md = this.currentDoc?.content || ''
+      }
+      await api.saveDraft(this.projectId, this.docPath, md)
+      await api.releaseLock(this.projectId, this.docPath)
+      if (this.currentDoc) {
+        this.currentDoc.content = md
       }
       this.mode = 'read'
       this.renderReadMode()
     }
+  }
+
+  public renderCrepeCodePreview(
+    language: string,
+    content: string,
+    applyPreview: (val: any) => void
+  ): void | null | string | HTMLElement {
+    const lang = (language || '').toLowerCase().trim()
+    if (lang !== 'mermaid') {
+      return null
+    }
+
+    const trimmed = content.trim()
+    if (!trimmed) {
+      return null
+    }
+
+    const seq = (this.crepePreviewSeq.get(applyPreview) || 0) + 1
+    this.crepePreviewSeq.set(applyPreview, seq)
+
+    const existingTimer = this.crepePreviewTimers.get(applyPreview)
+    if (existingTimer) {
+      clearTimeout(existingTimer)
+    }
+
+    const timer = setTimeout(async () => {
+      if (this.crepePreviewSeq.get(applyPreview) !== seq) return
+      const diagramId = `mermaid-crepe-${Math.random().toString(36).slice(2, 9)}`
+      try {
+        const { svg } = await mermaid.render(diagramId, trimmed)
+        if (this.crepePreviewSeq.get(applyPreview) === seq) {
+          applyPreview(svg)
+        }
+      } catch (err: any) {
+        const dangling = document.getElementById(diagramId) || document.getElementById('d' + diagramId)
+        if (dangling) dangling.remove()
+        if (this.crepePreviewSeq.get(applyPreview) === seq) {
+          const msg = err?.message || 'Error rendering diagram'
+          applyPreview(
+            `<div class="mermaid-preview-error" style="padding: 8px 12px; font-size: 12px; color: var(--danger-text, #ef4444); background: var(--bg-hover, rgba(239,68,68,0.08)); border-radius: 6px; border: 1px dashed var(--color-danger, #ef4444); text-align: left;">⚠️ ${msg}</div>`
+          )
+        }
+      }
+    }, 150)
+
+    this.crepePreviewTimers.set(applyPreview, timer)
+    return undefined
+  }
+
+  private getCrepeConfig(root: HTMLElement, defaultValue: string) {
+    return {
+      root,
+      defaultValue,
+      featureConfigs: {
+        [Crepe.Feature.CodeMirror]: {
+          previewLabel: i18n.t.workspace.preview,
+          previewToggleText: (previewOnlyMode: boolean) =>
+            previewOnlyMode ? i18n.t.workspace.editCode : i18n.t.workspace.hideCode,
+          renderPreview: (language: string, content: string, applyPreview: (val: any) => void) =>
+            this.renderCrepeCodePreview(language, content, applyPreview),
+        },
+      },
+    }
+  }
+
+  private createCrepeInstance(root: HTMLElement, defaultValue: string): Crepe {
+    const crepe = new Crepe(this.getCrepeConfig(root, defaultValue))
+    crepe.editor.use(crepeCallouts)
+    return crepe
   }
 
   private renderEditMode(): void {
@@ -826,6 +1172,9 @@ export class WorkspaceView {
     const exportWrapper = this.container.querySelector<HTMLElement>('#exportMenuWrapper')
     if (exportWrapper) exportWrapper.style.display = 'none'
 
+    const subModeToggle = this.container.querySelector<HTMLElement>('#editSubModeToggleGroup')
+    if (subModeToggle) subModeToggle.style.display = 'inline-flex'
+
     readPane.style.display = 'none'
     editPane.style.display = 'block'
     btnPublish.style.display = 'inline-flex'
@@ -838,27 +1187,169 @@ export class WorkspaceView {
     btnRead.classList.remove('btn-primary')
 
     const crepeContainer = this.container.querySelector<HTMLElement>('#crepeContainer')!
-    crepeContainer.innerHTML = ''
+    const sourceContainer = this.container.querySelector<HTMLElement>('#sourceContainer')!
+    const sourceTextarea = this.container.querySelector<HTMLTextAreaElement>('#sourceTextarea')!
+    const btnVisual = this.container.querySelector<HTMLButtonElement>('#btnEditVisual')!
+    const btnSource = this.container.querySelector<HTMLButtonElement>('#btnEditSource')!
 
-    this.crepe = new Crepe({
-      root: crepeContainer,
-      defaultValue: this.currentDoc?.content || '',
-    })
+    // Reset to Visual submode on enter
+    this.editSubMode = 'visual'
+    crepeContainer.style.display = 'block'
+    sourceContainer.style.display = 'none'
+    btnVisual.classList.add('btn-primary')
+    btnVisual.classList.remove('btn-ghost')
+    btnSource.classList.add('btn-ghost')
+    btnSource.classList.remove('btn-primary')
+
+    crepeContainer.innerHTML = ''
+    this.crepe = this.createCrepeInstance(crepeContainer, this.currentDoc?.content || '')
 
     this.crepe.create().then(() => {
-      this.crepe?.on((listener) => {
-        listener.markdownUpdated((_, markdown) => {
-          if (this.autosaveTimer) clearTimeout(this.autosaveTimer)
-          statusBadge.textContent = 'Saving...'
-          this.autosaveTimer = setTimeout(async () => {
-            try {
-              await api.saveDraft(this.projectId, this.docPath, markdown)
-              statusBadge.textContent = 'Draft Saved'
-            } catch (err) {
-              statusBadge.textContent = 'Save Error'
-            }
-          }, 800)
-        })
+      this.setupCrepeListener(statusBadge)
+    })
+
+    // Bind submode toggle buttons
+    btnVisual.onclick = (e) => {
+      e.stopPropagation()
+      this.switchEditSubMode('visual')
+    }
+    btnSource.onclick = (e) => {
+      e.stopPropagation()
+      this.switchEditSubMode('source')
+    }
+
+    const sourceLineNumbers = this.container.querySelector<HTMLElement>('#sourceLineNumbers')
+
+    // Bind scroll synchronization between textarea and gutter
+    sourceTextarea.onscroll = () => {
+      if (sourceLineNumbers) {
+        sourceLineNumbers.scrollTop = sourceTextarea.scrollTop
+      }
+    }
+
+    // Tab key indent support (2 spaces)
+    sourceTextarea.onkeydown = (e) => {
+      if (e.key === 'Tab') {
+        e.preventDefault()
+        const start = sourceTextarea.selectionStart
+        const end = sourceTextarea.selectionEnd
+        sourceTextarea.value = sourceTextarea.value.substring(0, start) + '  ' + sourceTextarea.value.substring(end)
+        sourceTextarea.selectionStart = sourceTextarea.selectionEnd = start + 2
+        sourceTextarea.dispatchEvent(new Event('input'))
+      }
+    }
+
+    // Bind source editor input for autosave & gutter update
+    sourceTextarea.oninput = () => {
+      if (this.autosaveTimer) clearTimeout(this.autosaveTimer)
+      statusBadge.textContent = 'Saving...'
+      this.updateSourceLineCount()
+      this.updateSourceLineNumbers()
+      this.autosaveTimer = setTimeout(async () => {
+        try {
+          await api.saveDraft(this.projectId, this.docPath, sourceTextarea.value)
+          statusBadge.textContent = 'Draft Saved'
+        } catch {
+          statusBadge.textContent = 'Save Error'
+        }
+      }, 800)
+    }
+  }
+
+  private updateSourceLineCount(): void {
+    const textarea = this.container.querySelector<HTMLTextAreaElement>('#sourceTextarea')
+    const countEl = this.container.querySelector<HTMLElement>('#sourceLineCount')
+    if (!textarea || !countEl) return
+    const text = textarea.value
+    const lines = text ? text.split('\n').length : 1
+    const chars = text.length
+    countEl.textContent = `${lines} ${i18n.getLocale() === 'es' ? 'líneas' : 'lines'} • ${chars} ${i18n.getLocale() === 'es' ? 'caracteres' : 'chars'}`
+  }
+
+  private updateSourceLineNumbers(): void {
+    const textarea = this.container.querySelector<HTMLTextAreaElement>('#sourceTextarea')
+    const gutter = this.container.querySelector<HTMLElement>('#sourceLineNumbers')
+    if (!textarea || !gutter) return
+    const lines = Math.max(1, textarea.value.split('\n').length)
+    let numbers = ''
+    for (let i = 1; i <= lines; i++) {
+      numbers += i + '\n'
+    }
+    gutter.textContent = numbers
+    gutter.scrollTop = textarea.scrollTop
+  }
+
+  private async switchEditSubMode(subMode: 'visual' | 'source'): Promise<void> {
+    if (this.editSubMode === subMode) return
+
+    const crepeContainer = this.container.querySelector<HTMLElement>('#crepeContainer')
+    const sourceContainer = this.container.querySelector<HTMLElement>('#sourceContainer')
+    const sourceTextarea = this.container.querySelector<HTMLTextAreaElement>('#sourceTextarea')
+    const btnVisual = this.container.querySelector<HTMLButtonElement>('#btnEditVisual')
+    const btnSource = this.container.querySelector<HTMLButtonElement>('#btnEditSource')
+    const statusBadge = this.container.querySelector<HTMLElement>('#saveStatusBadge')
+
+    if (!crepeContainer || !sourceContainer || !sourceTextarea || !btnVisual || !btnSource) return
+
+    if (subMode === 'source') {
+      // 1. Visual -> Source
+      const currentMd = this.crepe ? this.crepe.getMarkdown() : (this.currentDoc?.content || '')
+      sourceTextarea.value = currentMd
+      this.updateSourceLineCount()
+      this.updateSourceLineNumbers()
+
+      crepeContainer.style.display = 'none'
+      sourceContainer.style.display = 'flex'
+
+      btnVisual.classList.remove('btn-primary')
+      btnVisual.classList.add('btn-ghost')
+      btnSource.classList.remove('btn-ghost')
+      btnSource.classList.add('btn-primary')
+
+      this.editSubMode = 'source'
+      sourceTextarea.focus()
+    } else {
+      // 2. Source -> Visual
+      const updatedMd = sourceTextarea.value
+      if (this.crepe) {
+        try {
+          await this.crepe.destroy()
+        } catch {}
+        this.crepe = null
+      }
+
+      crepeContainer.innerHTML = ''
+      this.crepe = this.createCrepeInstance(crepeContainer, updatedMd)
+
+      await this.crepe.create()
+      this.setupCrepeListener(statusBadge)
+
+      sourceContainer.style.display = 'none'
+      crepeContainer.style.display = 'block'
+
+      btnSource.classList.remove('btn-primary')
+      btnSource.classList.add('btn-ghost')
+      btnVisual.classList.remove('btn-ghost')
+      btnVisual.classList.add('btn-primary')
+
+      this.editSubMode = 'visual'
+    }
+  }
+
+  private setupCrepeListener(statusBadge: HTMLElement | null): void {
+    if (!this.crepe) return
+    this.crepe.on((listener) => {
+      listener.markdownUpdated((_, markdown) => {
+        if (this.autosaveTimer) clearTimeout(this.autosaveTimer)
+        if (statusBadge) statusBadge.textContent = 'Saving...'
+        this.autosaveTimer = setTimeout(async () => {
+          try {
+            await api.saveDraft(this.projectId, this.docPath, markdown)
+            if (statusBadge) statusBadge.textContent = 'Draft Saved'
+          } catch {
+            if (statusBadge) statusBadge.textContent = 'Save Error'
+          }
+        }, 800)
       })
     })
   }
@@ -1115,6 +1606,9 @@ export class WorkspaceView {
     if (this.sse) this.sse.close()
     try {
       this.sse = new EventSource('/api/events')
+      this.sse.onopen = () => {
+        this.refreshTree()
+      }
       this.sse.onmessage = async (e) => {
         try {
           const data = JSON.parse(e.data)
@@ -1124,12 +1618,20 @@ export class WorkspaceView {
           } else if (data.type === 'doc') {
             await this.refreshTree()
             if (data.file === this.docPath && this.mode === 'read') {
-              const res = await api.getDocument(this.projectId, this.docPath)
-              this.currentDoc = res
-              this.renderReadMode()
+              try {
+                const res = await api.getDocument(this.projectId, this.docPath)
+                this.currentDoc = res
+                this.renderReadMode()
+              } catch {}
             }
           } else if (data.type === 'tree') {
             await this.refreshTree()
+            if (this.docPath && !this.docExistsInTree(this.tree, this.docPath)) {
+              const first = this.findFirstDoc(this.tree)
+              if (first) {
+                await this.openDocument(first.path)
+              }
+            }
           }
         } catch {}
       }
@@ -1489,6 +1991,15 @@ export class WorkspaceView {
     // Publish to Main
     btnPublish.addEventListener('click', async () => {
       try {
+        let md = ''
+        if (this.editSubMode === 'source') {
+          const sourceTextarea = this.container.querySelector<HTMLTextAreaElement>('#sourceTextarea')
+          md = sourceTextarea ? sourceTextarea.value : (this.currentDoc?.content || '')
+          await api.saveDraft(this.projectId, this.docPath, md)
+        } else if (this.crepe) {
+          md = this.crepe.getMarkdown()
+          await api.saveDraft(this.projectId, this.docPath, md)
+        }
         await api.publishDocument(this.projectId, this.docPath)
         this.showFlash('Published successfully to main!', 'success')
         await this.switchMode('read')
@@ -1677,9 +2188,10 @@ export class WorkspaceView {
       this.sse.close()
       this.sse = null
     }
-    if (this.treePollTimer) {
-      clearInterval(this.treePollTimer)
-      this.treePollTimer = null
+    window.removeEventListener('focus', this.onFocusHandler)
+    window.removeEventListener('resize', this.onResizeHandler)
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', this.onVisibilityChangeHandler)
     }
     if (this.autosaveTimer) {
       clearInterval(this.autosaveTimer)

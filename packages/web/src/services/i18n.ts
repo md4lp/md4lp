@@ -219,6 +219,18 @@ export interface TranslationDictionary {
     collapseWidth: string
     toggleBreakoutTooltip: string
     codeCopied: string
+    mermaidDiagram: string
+    viewSource: string
+    viewDiagram: string
+    visual: string
+    source: string
+    visualEditor: string
+    sourceEditor: string
+    sourceEditorDescription: string
+    sourcePlaceholder: string
+    preview: string
+    hideCode: string
+    editCode: string
   }
 }
 
@@ -441,6 +453,18 @@ export const en: TranslationDictionary = {
     collapseWidth: 'Standard',
     toggleBreakoutTooltip: 'Toggle expanded breakout width',
     codeCopied: 'Copied!',
+    mermaidDiagram: 'Mermaid Diagram',
+    viewSource: 'Code',
+    viewDiagram: 'Diagram',
+    visual: 'Visual',
+    source: 'Source',
+    visualEditor: 'Visual WYSIWYG Editor',
+    sourceEditor: 'Raw Markdown Source Editor',
+    sourceEditorDescription: 'Direct raw Markdown editing',
+    sourcePlaceholder: 'Write raw Markdown here...',
+    preview: 'Preview',
+    hideCode: 'Hide code',
+    editCode: 'Edit',
   },
 }
 
@@ -663,6 +687,18 @@ export const es: TranslationDictionary = {
     collapseWidth: 'Estándar',
     toggleBreakoutTooltip: 'Alternar ancho extendido',
     codeCopied: '¡Copiado!',
+    mermaidDiagram: 'Diagrama Mermaid',
+    viewSource: 'Código',
+    viewDiagram: 'Diagrama',
+    visual: 'Visual',
+    source: 'Fuente',
+    visualEditor: 'Editor visual WYSIWYG',
+    sourceEditor: 'Editor de código fuente Markdown',
+    sourceEditorDescription: 'Edición directa de Markdown plano',
+    sourcePlaceholder: 'Escribe Markdown plano aquí...',
+    preview: 'Previsualización',
+    hideCode: 'Ocultar código',
+    editCode: 'Editar',
   },
 }
 

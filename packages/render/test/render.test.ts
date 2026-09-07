@@ -47,6 +47,27 @@ describe('reading enhancements (D19 Tier 1)', () => {
     expect(html).toMatch(/<h1[^>]*data-s="0"/)
     expect(html).toMatch(/<p[^>]*data-s="\d+"[^>]*data-e="\d+"/)
   })
+
+  it('transforms GitHub-style alerts into styled callouts while preserving source offsets', () => {
+    const md = '> [!NOTE]\n> This is a helpful note.\n\n> [!WARNING]\n> Be careful here.\n'
+    const html = renderToHtml(md)
+    expect(html).toContain('markdown-alert-note')
+    expect(html).toContain('markdown-alert-warning')
+    expect(html).toContain('markdown-alert-title')
+    expect(html).toContain('ℹ️')
+    expect(html).toContain('⚠️')
+    expect(html).toContain('This is a helpful note.')
+    expect(html).toContain('Be careful here.')
+    expect(html).toMatch(/<blockquote[^>]*data-s="0"/)
+  })
+
+  it('keeps standard blockquotes without alert tags as normal blockquotes', () => {
+    const md = '> Just a normal quote.\n'
+    const html = renderToHtml(md)
+    expect(html).toMatch(/<blockquote[^>]*>/)
+    expect(html).not.toContain('markdown-alert')
+    expect(html).toContain('Just a normal quote.')
+  })
 })
 
 describe('comment formatting', () => {

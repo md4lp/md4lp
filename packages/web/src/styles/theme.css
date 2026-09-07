@@ -47,10 +47,27 @@
   --sidebar-width: 280px;
   --drawer-width: 340px;
 
-  --canvas-width-standard: 900px;
-  --canvas-width-wide: 1240px;
+  --canvas-width-standard: 780px;
+  --canvas-width-wide: 1200px;
   --canvas-width-full: 100%;
   --canvas-max-width: var(--canvas-width-standard);
+
+  /* Crepe Theme Variable Mapping */
+  --crepe-font-title: var(--font-sans);
+  --crepe-font-default: var(--font-sans);
+  --crepe-font-code: var(--font-mono);
+  --crepe-color-background: transparent;
+  --crepe-color-on-background: var(--text-primary);
+  --crepe-color-surface: var(--bg-surface);
+  --crepe-color-surface-low: var(--bg-hover);
+  --crepe-color-outline: var(--border-default);
+  --crepe-color-hover: var(--bg-hover);
+  --crepe-color-selected: var(--accent-subtle);
+  --crepe-color-primary: var(--accent-primary);
+  --crepe-color-on-surface: var(--text-primary);
+  --crepe-color-inline-code: var(--accent-primary);
+  --crepe-color-inline-area: var(--bg-hover);
+  --crepe-shadow-1: var(--shadow-md);
 }
 
 /* System Dark Mode */
@@ -321,15 +338,36 @@ dialog {
 
 #readPane,
 #editPane {
-  max-width: var(--canvas-max-width, 900px) !important;
-  transition: max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  width: 100% !important;
+  max-width: 100% !important;
+  overflow-y: auto;
+  overflow-x: hidden;
 }
 
-.canvas-width-full #readPane,
-.canvas-width-full #editPane {
+#readContent,
+#editContent {
+  width: 100%;
+  max-width: var(--canvas-max-width, 780px);
+  margin: 0 auto;
+  transition: max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+}
+
+.canvas-width-full #readContent,
+.canvas-width-full #editContent {
   max-width: 100% !important;
-  padding-left: 48px;
-  padding-right: 48px;
+}
+
+/* Mobile Responsiveness: Force 100% width and hide canvas width switcher */
+@media (max-width: 768px) {
+  #canvasWidthWrapper {
+    display: none !important;
+  }
+  #readContent,
+  #editContent,
+  #editPane {
+    max-width: 100% !important;
+  }
 }
 
 /* Read Mode Typography */
@@ -386,6 +424,134 @@ dialog {
   background: var(--bg-app);
   border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
   color: var(--text-secondary);
+}
+
+/* GitHub-style Alerts / Callouts (both Read Mode .prose and Crepe Edit Mode .milkdown) */
+.prose blockquote.markdown-alert,
+.milkdown blockquote.markdown-alert {
+  border-left-width: 4px;
+  border-left-style: solid;
+  border-radius: 0 var(--radius-md) var(--radius-md) 0;
+  padding: 12px 16px;
+  margin: 1.5em 0;
+}
+
+.prose blockquote.markdown-alert .markdown-alert-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+  font-size: 13px;
+  line-height: 1.2;
+  margin: 0 0 6px 0;
+}
+
+.prose blockquote.markdown-alert .markdown-alert-icon {
+  font-size: 14px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.prose blockquote.markdown-alert p:not(.markdown-alert-title),
+.milkdown blockquote.markdown-alert p {
+  margin: 0.35em 0;
+  color: var(--text-primary);
+  font-size: 13.5px;
+  line-height: 1.55;
+}
+
+/* Crepe Live Badge for [!TYPE] */
+.milkdown blockquote.markdown-alert .markdown-alert-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 700;
+  font-size: 11.5px;
+  line-height: 1.4;
+  padding: 1px 7px;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  margin-right: 6px;
+  margin-bottom: 4px;
+  background: var(--bg-surface);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.milkdown blockquote.markdown-alert .markdown-alert-badge-note::before {
+  content: 'ℹ️';
+  font-size: 12px;
+}
+
+.milkdown blockquote.markdown-alert .markdown-alert-badge-tip::before {
+  content: '💡';
+  font-size: 12px;
+}
+
+.milkdown blockquote.markdown-alert .markdown-alert-badge-important::before {
+  content: '💬';
+  font-size: 12px;
+}
+
+.milkdown blockquote.markdown-alert .markdown-alert-badge-warning::before {
+  content: '⚠️';
+  font-size: 12px;
+}
+
+.milkdown blockquote.markdown-alert .markdown-alert-badge-caution::before {
+  content: '🛑';
+  font-size: 12px;
+}
+
+/* Alert Variants */
+.prose blockquote.markdown-alert-note,
+.milkdown blockquote.markdown-alert-note {
+  border-left-color: #0969da;
+  background: rgba(9, 105, 218, 0.08);
+}
+.prose blockquote.markdown-alert-note .markdown-alert-title,
+.milkdown blockquote.markdown-alert-note .markdown-alert-badge {
+  color: #0969da;
+}
+
+.prose blockquote.markdown-alert-tip,
+.milkdown blockquote.markdown-alert-tip {
+  border-left-color: #1a7f37;
+  background: rgba(26, 127, 55, 0.08);
+}
+.prose blockquote.markdown-alert-tip .markdown-alert-title,
+.milkdown blockquote.markdown-alert-tip .markdown-alert-badge {
+  color: #1a7f37;
+}
+
+.prose blockquote.markdown-alert-important,
+.milkdown blockquote.markdown-alert-important {
+  border-left-color: #8250df;
+  background: rgba(130, 80, 223, 0.08);
+}
+.prose blockquote.markdown-alert-important .markdown-alert-title,
+.milkdown blockquote.markdown-alert-important .markdown-alert-badge {
+  color: #8250df;
+}
+
+.prose blockquote.markdown-alert-warning,
+.milkdown blockquote.markdown-alert-warning {
+  border-left-color: #9a6700;
+  background: rgba(154, 103, 0, 0.08);
+}
+.prose blockquote.markdown-alert-warning .markdown-alert-title,
+.milkdown blockquote.markdown-alert-warning .markdown-alert-badge {
+  color: #9a6700;
+}
+
+.prose blockquote.markdown-alert-caution,
+.milkdown blockquote.markdown-alert-caution {
+  border-left-color: #d1242f;
+  background: rgba(209, 36, 47, 0.08);
+}
+.prose blockquote.markdown-alert-caution .markdown-alert-title,
+.milkdown blockquote.markdown-alert-caution .markdown-alert-badge {
+  color: #d1242f;
 }
 
 .prose code:not(pre code) {
@@ -481,29 +647,427 @@ dialog {
   background: transparent;
 }
 
+.breakout-wrapper .mermaid-preview {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px 16px;
+  overflow-x: auto;
+  width: 100%;
+  background: var(--bg-surface);
+}
+
+.breakout-wrapper .mermaid-preview svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
 /* Breakout expanded behavior */
-.canvas-width-standard .breakout-wrapper.is-breakout {
-  width: calc(100% + min(360px, 100vw - var(--sidebar-width, 280px) - 900px - 96px));
-  margin-left: calc(-0.5 * min(360px, 100vw - var(--sidebar-width, 280px) - 900px - 96px));
+.breakout-wrapper.is-breakout {
   box-shadow: var(--shadow-lg);
   border-color: var(--border-default);
   z-index: 5;
 }
 
-.canvas-width-wide .breakout-wrapper.is-breakout {
-  width: calc(100% + min(200px, 100vw - var(--sidebar-width, 280px) - 1240px - 96px));
-  margin-left: calc(-0.5 * min(200px, 100vw - var(--sidebar-width, 280px) - 1240px - 96px));
-  box-shadow: var(--shadow-lg);
-  border-color: var(--border-default);
-  z-index: 5;
-}
-
-@media (max-width: 1100px) {
-  .canvas-width-standard .breakout-wrapper.is-breakout,
-  .canvas-width-wide .breakout-wrapper.is-breakout {
-    width: 100%;
-    margin-left: 0;
+@media (max-width: 900px) {
+  .breakout-wrapper.is-breakout {
+    width: 100% !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
   }
+}
+
+/* ==========================================================================
+   Crepe Edit Mode (.milkdown) Visual Harmonization with Read Mode (.prose)
+   ========================================================================== */
+
+.milkdown {
+  background: transparent !important;
+  box-shadow: none !important;
+  border: none !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  font-family: var(--font-sans) !important;
+  color: var(--text-primary) !important;
+}
+
+.milkdown .ProseMirror {
+  padding: 0 !important;
+  width: 100% !important;
+  max-width: 100% !important;
+  min-height: calc(100vh - 240px);
+  outline: none !important;
+  box-sizing: border-box;
+  font-family: var(--font-sans) !important;
+  font-size: 15px !important;
+  line-height: 1.7 !important;
+  color: var(--text-primary) !important;
+  word-break: break-word;
+}
+
+/* Headings in Crepe: Identical hierarchy, weight, spacing and subtle dividers as .prose */
+.milkdown .ProseMirror h1,
+.milkdown .ProseMirror h2,
+.milkdown .ProseMirror h3,
+.milkdown .ProseMirror h4,
+.milkdown .ProseMirror h5,
+.milkdown .ProseMirror h6 {
+  font-family: var(--font-sans) !important;
+  color: var(--text-primary) !important;
+  letter-spacing: -0.01em;
+}
+
+.milkdown .ProseMirror h1 {
+  font-size: 2em !important;
+  font-weight: 700 !important;
+  line-height: 1.3 !important;
+  margin: 1.4em 0 0.6em !important;
+  padding-bottom: 0.3em !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+}
+
+.milkdown .ProseMirror h2 {
+  font-size: 1.5em !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  margin: 1.3em 0 0.5em !important;
+  padding-bottom: 0.2em !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+}
+
+.milkdown .ProseMirror h3 {
+  font-size: 1.25em !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  margin: 1.1em 0 0.4em !important;
+}
+
+.milkdown .ProseMirror h4 {
+  font-size: 1.1em !important;
+  font-weight: 600 !important;
+  line-height: 1.3 !important;
+  margin: 1.0em 0 0.3em !important;
+}
+
+/* Paragraphs */
+.milkdown .ProseMirror p:not(foreignObject p) {
+  font-size: 15px !important;
+  line-height: 1.7 !important;
+  margin: 0.9em 0 !important;
+  padding: 0 !important;
+  color: var(--text-primary) !important;
+}
+
+/* Links */
+.milkdown .ProseMirror a {
+  color: var(--accent-primary) !important;
+  text-decoration: underline !important;
+  text-underline-offset: 2px !important;
+  transition: color 0.15s ease;
+}
+.milkdown .ProseMirror a:hover {
+  color: var(--accent-hover) !important;
+}
+
+/* Inline Code: Clean pill style matching .prose */
+.milkdown .ProseMirror code:not(pre code) {
+  font-family: var(--font-mono) !important;
+  font-size: 0.88em !important;
+  padding: 2px 6px !important;
+  background: var(--bg-hover) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--accent-primary) !important;
+  font-weight: 500 !important;
+}
+
+/* Standard Blockquotes (non-callout) */
+.milkdown .ProseMirror blockquote:not(.markdown-alert) {
+  border-left: 4px solid var(--accent-primary) !important;
+  margin: 1.2em 0 !important;
+  padding: 8px 16px !important;
+  background: var(--bg-app) !important;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0 !important;
+  color: var(--text-secondary) !important;
+  box-sizing: border-box;
+}
+.milkdown .ProseMirror blockquote:not(.markdown-alert)::before {
+  display: none !important;
+}
+
+/* Lists */
+.milkdown .ProseMirror ul,
+.milkdown .ProseMirror ol {
+  margin: 0.9em 0 !important;
+  padding-left: 1.8em !important;
+}
+
+.milkdown .ProseMirror li {
+  margin: 0.35em 0 !important;
+  line-height: 1.7 !important;
+}
+
+/* Horizontal Rule */
+.milkdown .ProseMirror hr {
+  border: none !important;
+  border-top: 1px solid var(--border-subtle) !important;
+  height: 1px !important;
+  margin: 2em 0 !important;
+  padding: 0 !important;
+  background: transparent !important;
+}
+.milkdown .ProseMirror hr::before {
+  display: none !important;
+}
+
+/* Code Blocks in Crepe */
+.milkdown .milkdown-code-block {
+  border-radius: var(--radius-md) !important;
+  border: 1px solid var(--border-subtle) !important;
+  background: var(--bg-surface) !important;
+  margin: 1.2em 0 !important;
+  box-shadow: var(--shadow-sm);
+  overflow: hidden;
+}
+
+.milkdown .milkdown-code-block .cm-editor {
+  background: var(--bg-surface) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+}
+
+.milkdown .milkdown-code-block .cm-gutters {
+  background: var(--bg-app) !important;
+  border-right: 1px solid var(--border-subtle) !important;
+  color: var(--text-muted) !important;
+}
+
+/* Floating Block Handle & Slash Menu Polish */
+.milkdown .milkdown-slash-menu {
+  background: var(--bg-surface) !important;
+  border: 1px solid var(--border-subtle) !important;
+  box-shadow: var(--shadow-lg) !important;
+  color: var(--text-primary) !important;
+  font-family: var(--font-sans) !important;
+}
+
+.milkdown .milkdown-slash-menu .menu-groups .menu-group li:hover {
+  background: var(--bg-hover) !important;
+}
+
+.milkdown .milkdown-slash-menu .menu-groups .menu-group li.selected {
+  background: var(--accent-subtle) !important;
+}
+
+/* Crepe Code Block Preview (Mermaid & LaTeX) */
+.milkdown .milkdown-code-block .preview-panel {
+  padding: 8px 12px 16px;
+  background: var(--bg-surface);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.milkdown .milkdown-code-block .preview-panel .preview {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 8px;
+  overflow-x: auto;
+  width: 100%;
+}
+
+.milkdown .milkdown-code-block .preview-panel .preview svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Isolate Diagram Previews (Mermaid, KaTeX, SVG) from ProseMirror Typography & Resets */
+.preview-panel svg,
+.preview-panel foreignObject,
+.mermaid-preview svg,
+.mermaid-preview foreignObject {
+  overflow: visible !important;
+}
+
+.preview-panel foreignObject *,
+.mermaid-preview foreignObject * {
+  box-sizing: content-box;
+}
+
+.preview-panel foreignObject p,
+.preview-panel foreignObject h1,
+.preview-panel foreignObject h2,
+.preview-panel foreignObject h3,
+.preview-panel foreignObject h4,
+.preview-panel foreignObject h5,
+.preview-panel foreignObject h6,
+.preview-panel foreignObject a,
+.preview-panel foreignObject code,
+.mermaid-preview foreignObject p,
+.mermaid-preview foreignObject h1,
+.mermaid-preview foreignObject h2,
+.mermaid-preview foreignObject h3,
+.mermaid-preview foreignObject h4,
+.mermaid-preview foreignObject h5,
+.mermaid-preview foreignObject h6,
+.mermaid-preview foreignObject a,
+.mermaid-preview foreignObject code {
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: inherit !important;
+  font-size: inherit !important;
+  color: inherit !important;
+  border: none !important;
+  font-family: inherit !important;
+}
+
+.milkdown .milkdown-code-block .preview-panel .mermaid-preview-error {
+  width: 100%;
+  margin: 4px 0;
+}
+
+/* Crepe Table Block & Contextual Controls */
+.milkdown .milkdown-table-block {
+  margin: 1.5em 0;
+  position: relative;
+}
+
+.milkdown .milkdown-table-block table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+.milkdown .milkdown-table-block th,
+.milkdown .milkdown-table-block td {
+  border: 1px solid var(--border-default);
+  padding: 8px 14px;
+  min-width: 60px;
+  background: var(--bg-surface);
+}
+
+.milkdown .milkdown-table-block th {
+  background: var(--bg-hover);
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.milkdown .milkdown-table-block .cell-handle {
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+}
+
+.milkdown .milkdown-table-block .cell-handle .button-group {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-md);
+  border-radius: var(--radius-md);
+}
+
+.milkdown .milkdown-table-block .cell-handle .button-group button svg {
+  fill: var(--text-secondary);
+}
+
+.milkdown .milkdown-table-block .cell-handle .button-group button:hover svg {
+  fill: var(--text-primary);
+}
+
+.milkdown .milkdown-table-block .line-handle .add-button {
+  background-color: var(--bg-surface);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-sm);
+}
+
+.milkdown .milkdown-table-block .line-handle .add-button svg {
+  fill: var(--text-secondary);
+}
+
+.milkdown .milkdown-table-block .line-handle .add-button:hover svg {
+  fill: var(--accent-primary);
+}
+
+/* Source Editor (Raw Markdown Mode) */
+#sourceContainer {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.source-editor-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 12px;
+  background: var(--bg-app);
+  border: 1px solid var(--border-subtle);
+  border-bottom: none;
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+.source-editor-wrapper {
+  display: flex;
+  position: relative;
+  width: 100%;
+  min-height: 520px;
+  height: calc(100vh - 230px);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0 0 var(--radius-md) var(--radius-md);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.source-editor-wrapper:focus-within {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 2px var(--accent-subtle, rgba(37, 99, 235, 0.15));
+}
+
+.source-line-numbers {
+  flex-shrink: 0;
+  width: 48px;
+  padding: 16px 8px 16px 4px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  text-align: right;
+  color: var(--text-muted);
+  background: var(--bg-app);
+  border-right: 1px solid var(--border-subtle);
+  user-select: none;
+  overflow: hidden;
+  white-space: pre;
+  box-sizing: border-box;
+}
+
+.source-textarea {
+  flex: 1;
+  width: calc(100% - 48px);
+  height: 100%;
+  min-height: 100%;
+  padding: 16px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  tab-size: 2;
+  color: var(--text-primary);
+  background: transparent;
+  border: none;
+  outline: none;
+  resize: none;
+  overflow-y: auto;
+  overflow-x: auto;
+  white-space: pre;
+  word-wrap: normal;
+  box-sizing: border-box;
 }
 
 /* Print Optimization for PDF Export */

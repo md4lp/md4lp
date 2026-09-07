@@ -8,7 +8,9 @@
   "dependencies": {
     "@md4lp/render": "workspace:*",
     "@milkdown/crepe": "^7.21.2",
+    "@milkdown/kit": "^7.21.2",
     "highlight.js": "11.11.1",
-    "katex": "0.17.0"
+    "katex": "0.17.0",
+    "mermaid": "^11.17.2"
   }
 }

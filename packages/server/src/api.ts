@@ -86,7 +86,7 @@ export interface ApiResponse {
  * holder, or null when released/expired). Clients filter by `file` and refresh the relevant view.
  */
 export interface Md4lpEvent {
-  type: 'doc' | 'comments' | 'lock'
+  type: 'doc' | 'comments' | 'lock' | 'tree'
   file: string
   projectId?: string
   documentId?: string
@@ -641,18 +641,20 @@ export function createApi(
               const b = schemas.createDocumentBody.parse(body)
               const res = await documents.createDocument(projectId, b.path, b.content, author, b.message)
               emit({ type: 'doc', file: b.path, projectId, clientId: authContext?.clientId })
+              emit({ type: 'tree', file: b.path, projectId, clientId: authContext?.clientId })
               return ok({ ok: true, ...res })
             }
             if (method === 'POST' && parts[4] === 'documents' && parts[5] === 'rename') {
               const b = schemas.renameDocumentBody.parse(body)
               const res = await documents.renameDocument(projectId, b.oldPath, b.newPath, author, b.message)
               emit({ type: 'doc', file: b.newPath, projectId, clientId: authContext?.clientId })
+              emit({ type: 'tree', file: b.newPath, projectId, clientId: authContext?.clientId })
               return ok({ ok: true, ...res })
             }
             if (method === 'POST' && parts[4] === 'documents' && parts[5] === 'delete') {
               const b = schemas.deleteDocumentBody.parse(body)
               const res = await documents.deleteDocument(projectId, b.path, author, b.message)
-              emit({ type: 'doc', file: b.path, projectId, clientId: authContext?.clientId })
+              emit({ type: 'tree', file: b.path, projectId, clientId: authContext?.clientId })
               return ok({ ok: true, ...res })
             }
             if (method === 'POST' && parts[4] === 'documents' && parts[5] === 'check-conflict') {

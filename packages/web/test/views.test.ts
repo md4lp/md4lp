@@ -30,6 +30,20 @@ describe('Web SPA Views Comprehensive Suite', () => {
     if (!Range.prototype.getBoundingClientRect) {
       Range.prototype.getBoundingClientRect = () => ({ top: 0, bottom: 0, left: 0, right: 0, width: 0, height: 0, x: 0, y: 0, toJSON: () => {} }) as any
     }
+    if (!(SVGElement.prototype as any).getBBox) {
+      ;(SVGElement.prototype as any).getBBox = () => ({ x: 0, y: 0, width: 100, height: 100, top: 0, left: 0, right: 100, bottom: 100, toJSON: () => {} })
+    }
+    if (typeof globalThis.IntersectionObserver === 'undefined') {
+      class MockIntersectionObserver {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      }
+      globalThis.IntersectionObserver = MockIntersectionObserver as any
+      if (typeof window !== 'undefined') {
+        (window as any).IntersectionObserver = MockIntersectionObserver as any
+      }
+    }
     const store: Record<string, string> = {}
     const mockStorage = {
       getItem: (key: string) => store[key] || null,
@@ -363,7 +377,9 @@ describe('Web SPA Views Comprehensive Suite', () => {
     expect(container.textContent).toContain('README.md')
     expect(container.querySelector('#treeContainer')).not.toBeNull()
     expect(container.querySelector('#readPane')).not.toBeNull()
+    expect(container.querySelector('#readContent')).not.toBeNull()
     expect(container.querySelector('#editPane')).not.toBeNull()
+    expect(container.querySelector('#editContent')).not.toBeNull()
     expect(container.querySelector('#commentsDrawer')).not.toBeNull()
 
     // Test Rename Document Modal Flow
@@ -397,7 +413,7 @@ describe('Web SPA Views Comprehensive Suite', () => {
     await new Promise((r) => setTimeout(r, 10))
 
     expect(deleteSpy).toHaveBeenCalledWith('p1', 'README.md')
-  })
+  }, 15000)
 
   it('supports document export dropdown (Markdown, HTML, PDF) in Read mode and hides in Edit mode', async () => {
     vi.spyOn(api, 'listProjects').mockResolvedValueOnce({
@@ -487,7 +503,7 @@ describe('Web SPA Views Comprehensive Suite', () => {
       ok: true,
       projectId: 'p1',
       path: 'guide.md',
-      content: `# Guide\n\n| Col A | Col B |\n|---|---|\n| Val 1 | Val 2 |\n\n\`\`\`typescript\nconst count = 42;\n\`\`\``,
+      content: `# Guide\n\n| Col A | Col B |\n|---|---|\n| Val 1 | Val 2 |\n\n\`\`\`typescript\nconst count = 42;\n\`\`\`\n\n\`\`\`mermaid\ngraph LR\nStart --> Finish\n\`\`\``,
       branch: 'main',
       lock: { editor: null },
     })
@@ -542,8 +558,11 @@ describe('Web SPA Views Comprehensive Suite', () => {
     // Toggle table breakout
     btnToggleTableBreakout.click()
     expect(tableWrapper.classList.contains('is-breakout')).toBe(true)
+    expect(tableWrapper.style.width).toBeTruthy()
     btnToggleTableBreakout.click()
     expect(tableWrapper.classList.contains('is-breakout')).toBe(false)
+    expect(tableWrapper.style.width).toBe('')
+    expect(tableWrapper.style.marginLeft).toBe('')
 
     // 5. Verify Code Block Breakout & Copy Button
     const codeWrapper = container.querySelector<HTMLElement>('.code-breakout-wrapper')!
@@ -553,12 +572,44 @@ describe('Web SPA Views Comprehensive Suite', () => {
     const btnToggleCodeBreakout = codeWrapper.querySelector<HTMLButtonElement>('.btn-toggle-breakout')!
     btnToggleCodeBreakout.click()
     expect(codeWrapper.classList.contains('is-breakout')).toBe(true)
+    expect(codeWrapper.style.width).toBeTruthy()
 
     const btnCopyCode = codeWrapper.querySelector<HTMLButtonElement>('.btn-copy-code')!
     btnCopyCode.click()
     expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('const count = 42;'))
 
-    // 6. Test Manual & Auto Tree Refresh
+    // Verify recalculation when changing canvas width with an expanded breakout
+    const btnStandard = container.querySelector<HTMLButtonElement>('.btn-canvas-width-opt[data-width="standard"]')!
+    btnStandard.click()
+    expect(codeWrapper.classList.contains('is-breakout')).toBe(true)
+    btnWide.click()
+    expect(codeWrapper.classList.contains('is-breakout')).toBe(true)
+    btnFull.click()
+    expect(codeWrapper.classList.contains('is-breakout')).toBe(true)
+    expect(codeWrapper.style.width).toBe('100%')
+    expect(codeWrapper.style.marginLeft).toBe('0px')
+
+    // 6. Verify Mermaid Breakout, View Mode toggle, and Copy
+    const mermaidWrapper = container.querySelector<HTMLElement>('.mermaid-breakout-wrapper')!
+    expect(mermaidWrapper).not.toBeNull()
+    expect(mermaidWrapper.querySelector('.mermaid-preview')).not.toBeNull()
+
+    const btnToggleMermaid = mermaidWrapper.querySelector<HTMLButtonElement>('.btn-toggle-breakout')!
+    btnToggleMermaid.click()
+    expect(mermaidWrapper.classList.contains('is-breakout')).toBe(true)
+
+    const btnViewMode = mermaidWrapper.querySelector<HTMLButtonElement>('.btn-view-mode')!
+    btnViewMode.click()
+    const preCode = mermaidWrapper.querySelector('pre')!
+    expect(preCode.style.display).toBe('block')
+    btnViewMode.click()
+    expect(preCode.style.display).toBe('none')
+
+    const btnCopyMermaid = mermaidWrapper.querySelector<HTMLButtonElement>('.btn-copy-code')!
+    btnCopyMermaid.click()
+    expect(writeTextSpy).toHaveBeenCalledWith(expect.stringContaining('graph LR'))
+
+    // 7. Test Manual & Auto Tree Refresh
     const btnRefreshTree = container.querySelector<HTMLButtonElement>('#btnRefreshTree')!
     expect(btnRefreshTree).not.toBeNull()
 
@@ -574,6 +625,91 @@ describe('Web SPA Views Comprehensive Suite', () => {
     await new Promise((r) => setTimeout(r, 20))
     expect(listTreeSpy).toHaveBeenCalledWith('p1')
     expect(container.textContent).toContain('new-file.md')
+
+    view.destroy()
+  })
+
+  it('supports Source Mode (raw Markdown) toggle, line count, and autosave in WorkspaceView', async () => {
+    vi.spyOn(api, 'listProjects').mockResolvedValueOnce({
+      ok: true,
+      projects: [{ id: 'p1', name: 'Frontend Docs', slug: 'frontend-docs', effectiveRole: 'owner', createdAt: '2026-09-05' }],
+    })
+    vi.spyOn(api, 'listTree').mockResolvedValueOnce({
+      ok: true,
+      tree: [{ name: 'doc.md', path: 'doc.md', type: 'file' }],
+    })
+    vi.spyOn(api, 'getDocument').mockResolvedValueOnce({
+      ok: true,
+      projectId: 'p1',
+      path: 'doc.md',
+      content: '# Document Title\n\nInitial paragraph.',
+      branch: 'main',
+      lock: { editor: null },
+    })
+    vi.spyOn(api, 'getComments').mockResolvedValueOnce({ ok: true, comments: [] })
+    vi.spyOn(api, 'acquireLock').mockResolvedValueOnce({ ok: true, lock: { editor: 'alice', expiresAt: '2026-09-06T20:00:00Z' } } as any)
+    const saveDraftSpy = vi.spyOn(api, 'saveDraft').mockResolvedValue({ ok: true, commitOid: 'oid-draft' } as any)
+
+    const { WorkspaceView } = await import('../src/views/WorkspaceView')
+    const view = new WorkspaceView(container, 'frontend-docs', 'doc.md')
+    await view.render()
+
+    // 1. Enter edit mode
+    const btnModeEdit = container.querySelector<HTMLButtonElement>('#btnModeEdit')!
+    btnModeEdit.click()
+    await new Promise((r) => setTimeout(r, 20))
+
+    const subModeToggle = container.querySelector<HTMLElement>('#editSubModeToggleGroup')!
+    expect(subModeToggle.style.display).toBe('inline-flex')
+
+    const btnEditVisual = container.querySelector<HTMLButtonElement>('#btnEditVisual')!
+    const btnEditSource = container.querySelector<HTMLButtonElement>('#btnEditSource')!
+    const crepeContainer = container.querySelector<HTMLElement>('#crepeContainer')!
+    const sourceContainer = container.querySelector<HTMLElement>('#sourceContainer')!
+    const sourceTextarea = container.querySelector<HTMLTextAreaElement>('#sourceTextarea')!
+
+    expect(btnEditVisual.classList.contains('btn-primary')).toBe(true)
+    expect(crepeContainer.style.display).toBe('block')
+    expect(sourceContainer.style.display).toBe('none')
+
+    // 2. Switch to Source Mode
+    btnEditSource.click()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(btnEditSource.classList.contains('btn-primary')).toBe(true)
+    expect(btnEditVisual.classList.contains('btn-ghost')).toBe(true)
+    expect(sourceContainer.style.display).toBe('flex')
+    expect(crepeContainer.style.display).toBe('none')
+    expect(sourceTextarea.value).toContain('Document Title')
+
+    const sourceLineNumbers = container.querySelector<HTMLElement>('#sourceLineNumbers')!
+    expect(sourceLineNumbers).not.toBeNull()
+    expect(sourceLineNumbers.textContent).toContain('1\n')
+
+    // 3. Edit source text and verify autosave debounce & line number gutter update
+    sourceTextarea.value = '# Document Title Updated\n\nNew paragraph content.'
+    sourceTextarea.dispatchEvent(new Event('input'))
+    expect(sourceLineNumbers.textContent).toContain('3\n')
+
+    // Test Tab key indentation (2 spaces)
+    sourceTextarea.selectionStart = sourceTextarea.selectionEnd = 0
+    sourceTextarea.dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true }))
+    expect(sourceTextarea.value.startsWith('  #')).toBe(true)
+
+    const statusBadge = container.querySelector<HTMLElement>('#saveStatusBadge')!
+    expect(statusBadge.textContent).toBe('Saving...')
+
+    await new Promise((r) => setTimeout(r, 900))
+    expect(saveDraftSpy).toHaveBeenCalledWith('p1', 'doc.md', expect.stringContaining('Updated'))
+    expect(statusBadge.textContent).toBe('Draft Saved')
+
+    // 4. Switch back to Visual Mode
+    btnEditVisual.click()
+    await new Promise((r) => setTimeout(r, 20))
+
+    expect(btnEditVisual.classList.contains('btn-primary')).toBe(true)
+    expect(crepeContainer.style.display).toBe('block')
+    expect(sourceContainer.style.display).toBe('none')
 
     view.destroy()
   })
@@ -845,5 +981,165 @@ describe('Web SPA Views Comprehensive Suite', () => {
     expect(container.querySelectorAll('.btn-remove-proj-team')).toHaveLength(0)
     expect(container.querySelectorAll('.btn-revoke-invite')).toHaveLength(0)
   })
+
+  it('supports Mermaid code block preview in Crepe edit mode', async () => {
+    vi.spyOn(api, 'listProjects').mockResolvedValueOnce({
+      ok: true,
+      projects: [{ id: 'p1', name: 'Frontend Docs', slug: 'frontend-docs', effectiveRole: 'owner', createdAt: '2026-09-05' }],
+    })
+    vi.spyOn(api, 'listTree').mockResolvedValueOnce({
+      ok: true,
+      tree: [{ name: 'mermaid.md', path: 'mermaid.md', type: 'file' }],
+    })
+    vi.spyOn(api, 'getDocument').mockResolvedValueOnce({
+      ok: true,
+      projectId: 'p1',
+      path: 'mermaid.md',
+      content: '```mermaid\ngraph LR\nA --> B\n```',
+      branch: 'main',
+      lock: { editor: null },
+    })
+    vi.spyOn(api, 'getComments').mockResolvedValueOnce({ ok: true, comments: [] })
+    vi.spyOn(api, 'acquireLock').mockResolvedValueOnce({ ok: true, lock: { editor: 'alice', expiresAt: '2026-09-06T20:00:00Z' } } as any)
+
+    const { WorkspaceView } = await import('../src/views/WorkspaceView')
+    const view = new WorkspaceView(container, 'frontend-docs', 'mermaid.md')
+    await view.render()
+
+    // 1. Enter edit mode
+    const btnModeEdit = container.querySelector<HTMLButtonElement>('#btnModeEdit')!
+    btnModeEdit.click()
+    await new Promise((r) => setTimeout(r, 20))
+
+    // 2. Test renderCrepeCodePreview helper
+    const applyPreviewSpy = vi.fn()
+
+    // Non-mermaid languages return null
+    expect(view.renderCrepeCodePreview('typescript', 'const x = 1;', applyPreviewSpy)).toBeNull()
+    expect(view.renderCrepeCodePreview('markdown', '# title', applyPreviewSpy)).toBeNull()
+
+    // Empty mermaid content returns null
+    expect(view.renderCrepeCodePreview('mermaid', '   ', applyPreviewSpy)).toBeNull()
+
+    // Valid mermaid diagram triggers debounced async render
+    const asyncResult = view.renderCrepeCodePreview('mermaid', 'graph LR\nA --> B', applyPreviewSpy)
+    expect(asyncResult).toBeUndefined()
+
+    // Wait for debounce (150ms + render time)
+    await new Promise((r) => setTimeout(r, 250))
+    expect(applyPreviewSpy).toHaveBeenCalledWith(expect.stringContaining('<svg'))
+
+    // Error handling on invalid mermaid syntax
+    const applyErrorSpy = vi.fn()
+    view.renderCrepeCodePreview('mermaid', 'invalid:::syntax', applyErrorSpy)
+    await new Promise((r) => setTimeout(r, 250))
+    expect(applyErrorSpy).toHaveBeenCalledWith(expect.stringContaining('mermaid-preview-error'))
+  }, 15000)
+
+  it('supports GitHub-style callouts / alerts live decoration in Crepe edit mode', async () => {
+    vi.spyOn(api, 'listProjects').mockResolvedValueOnce({
+      ok: true,
+      projects: [{ id: 'p1', name: 'Frontend Docs', slug: 'frontend-docs', effectiveRole: 'owner', createdAt: '2026-09-05' }],
+    })
+    vi.spyOn(api, 'listTree').mockResolvedValueOnce({
+      ok: true,
+      tree: [{ name: 'callouts.md', path: 'callouts.md', type: 'file' }],
+    })
+    vi.spyOn(api, 'getDocument').mockResolvedValueOnce({
+      ok: true,
+      projectId: 'p1',
+      path: 'callouts.md',
+      content: '> [!NOTE]\n> This is a callout note in Crepe.\n\n> [!WARNING]\n> Cautionary warning content.\n\n> Normal quote without alert',
+      branch: 'main',
+      lock: { editor: null },
+    })
+    vi.spyOn(api, 'getComments').mockResolvedValueOnce({ ok: true, comments: [] })
+    vi.spyOn(api, 'acquireLock').mockResolvedValueOnce({ ok: true, lock: { editor: 'alice', expiresAt: '2026-09-06T20:00:00Z' } } as any)
+
+    const { WorkspaceView } = await import('../src/views/WorkspaceView')
+    const view = new WorkspaceView(container, 'frontend-docs', 'callouts.md')
+    await view.render()
+
+    // 1. Enter edit mode
+    const btnModeEdit = container.querySelector<HTMLButtonElement>('#btnModeEdit')!
+    btnModeEdit.click()
+    await new Promise((r) => setTimeout(r, 200))
+
+    // 2. Verify callout decorations in Crepe DOM
+    const crepeContainer = container.querySelector<HTMLElement>('#crepeContainer')!
+    expect(crepeContainer).not.toBeNull()
+
+    // Check blockquote decorations
+    const noteAlert = crepeContainer.querySelector('blockquote.markdown-alert-note')
+    expect(noteAlert).not.toBeNull()
+
+    const warningAlert = crepeContainer.querySelector('blockquote.markdown-alert-warning')
+    expect(warningAlert).not.toBeNull()
+
+    // Check badge decorations
+    const noteBadge = crepeContainer.querySelector('.markdown-alert-badge-note')
+    expect(noteBadge).not.toBeNull()
+    expect(noteBadge?.textContent).toContain('[!NOTE]')
+
+    const warningBadge = crepeContainer.querySelector('.markdown-alert-badge-warning')
+    expect(warningBadge).not.toBeNull()
+    expect(warningBadge?.textContent).toContain('[!WARNING]')
+
+    // Normal quote does not have markdown-alert class
+    const allQuotes = crepeContainer.querySelectorAll('blockquote')
+    expect(allQuotes.length).toBeGreaterThanOrEqual(3)
+    const normalQuote = Array.from(allQuotes).find(q => !q.classList.contains('markdown-alert'))
+    expect(normalQuote).toBeDefined()
+    expect(normalQuote?.textContent).toContain('Normal quote')
+  }, 15000)
+
+  it('supports Table contextual controls and block rendering in Crepe edit mode', async () => {
+    vi.spyOn(api, 'listProjects').mockResolvedValueOnce({
+      ok: true,
+      projects: [{ id: 'p1', name: 'Frontend Docs', slug: 'frontend-docs', effectiveRole: 'owner', createdAt: '2026-09-05' }],
+    })
+    vi.spyOn(api, 'listTree').mockResolvedValueOnce({
+      ok: true,
+      tree: [{ name: 'table.md', path: 'table.md', type: 'file' }],
+    })
+    vi.spyOn(api, 'getDocument').mockResolvedValueOnce({
+      ok: true,
+      projectId: 'p1',
+      path: 'table.md',
+      content: '| Header A | Header B |\n|---|---|\n| Cell 1 | Cell 2 |',
+      branch: 'main',
+      lock: { editor: null },
+    })
+    vi.spyOn(api, 'getComments').mockResolvedValueOnce({ ok: true, comments: [] })
+    vi.spyOn(api, 'acquireLock').mockResolvedValueOnce({ ok: true, lock: { editor: 'alice', expiresAt: '2026-09-06T20:00:00Z' } } as any)
+
+    const { WorkspaceView } = await import('../src/views/WorkspaceView')
+    const view = new WorkspaceView(container, 'frontend-docs', 'table.md')
+    await view.render()
+
+    // 1. Enter edit mode
+    const btnModeEdit = container.querySelector<HTMLButtonElement>('#btnModeEdit')!
+    btnModeEdit.click()
+    await new Promise((r) => setTimeout(r, 200))
+
+    // 2. Verify table block rendered inside Crepe
+    const crepeContainer = container.querySelector<HTMLElement>('#crepeContainer')!
+    expect(crepeContainer).not.toBeNull()
+
+    const tableBlock = crepeContainer.querySelector('.milkdown-table-block')
+    expect(tableBlock).not.toBeNull()
+
+    const tableEl = tableBlock?.querySelector('table.children')
+    expect(tableEl).not.toBeNull()
+    expect(tableEl?.textContent).toContain('Header A')
+    expect(tableEl?.textContent).toContain('Cell 1')
+
+    // 3. Verify contextual handle elements exist in TableBlock
+    const cellHandles = tableBlock?.querySelectorAll('.cell-handle')
+    expect(cellHandles && cellHandles.length).toBeGreaterThanOrEqual(1)
+
+    const lineHandles = tableBlock?.querySelectorAll('.line-handle')
+    expect(lineHandles && lineHandles.length).toBeGreaterThanOrEqual(1)
+  }, 15000)
 })
 

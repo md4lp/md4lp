@@ -142,6 +142,7 @@ export function createMcpServer(api: Api, defaultAgentUser = DEFAULT_AGENT_USER)
         author,
       )
       api.emit({ type: 'doc', file: path, projectId, by: defaultAgentUser })
+      api.emit({ type: 'tree', file: path, projectId, by: defaultAgentUser })
       return { content: [{ type: 'text' as const, text: `committed ${String(oid).slice(0, 7)} to project ${projectId}` }] }
     }
     await call('POST', 'lock/acquire', { path })
@@ -170,6 +171,83 @@ export function createMcpServer(api: Api, defaultAgentUser = DEFAULT_AGENT_USER)
     'Write a Markdown file in a project.',
     { path: pathField, ...putFileFields, projectId: projectIdField },
     writeFileHandler,
+  )
+
+  // ── delete_file / md4lp_delete_file ───────────────────────────────────────────
+  const deleteFileHandler = async ({
+    path,
+    projectId,
+    message,
+  }: {
+    path: string
+    projectId?: string
+    message?: string
+  }) => {
+    if (projectId) {
+      const author = { name: defaultAgentUser, email: `${defaultAgentUser}@agent.md4lp.local` }
+      const res = await api.documents.deleteDocument(projectId, path, author, message)
+      api.emit({ type: 'tree', file: path, projectId, by: defaultAgentUser })
+      return { content: [{ type: 'text' as const, text: `deleted ${path} (${res.commitOid.slice(0, 7)}) in project ${projectId}` }] }
+    }
+    throw new Error('projectId is required to delete a document')
+  }
+
+  server.tool(
+    'delete_file',
+    'Delete a Markdown file in a project.',
+    { path: pathField, projectId: projectIdField, message: z.string().describe('Git commit message').optional() },
+    deleteFileHandler,
+  )
+  server.tool(
+    'md4lp_delete_file',
+    'Delete a Markdown file in a project.',
+    { path: pathField, projectId: projectIdField, message: z.string().describe('Git commit message').optional() },
+    deleteFileHandler,
+  )
+
+  // ── rename_file / md4lp_rename_file ───────────────────────────────────────────
+  const renameFileHandler = async ({
+    oldPath,
+    newPath,
+    projectId,
+    message,
+  }: {
+    oldPath: string
+    newPath: string
+    projectId?: string
+    message?: string
+  }) => {
+    if (projectId) {
+      const author = { name: defaultAgentUser, email: `${defaultAgentUser}@agent.md4lp.local` }
+      const res = await api.documents.renameDocument(projectId, oldPath, newPath, author, message)
+      api.emit({ type: 'doc', file: newPath, projectId, by: defaultAgentUser })
+      api.emit({ type: 'tree', file: newPath, projectId, by: defaultAgentUser })
+      return { content: [{ type: 'text' as const, text: `renamed ${oldPath} to ${newPath} (${res.commitOid.slice(0, 7)}) in project ${projectId}` }] }
+    }
+    throw new Error('projectId is required to rename a document')
+  }
+
+  server.tool(
+    'rename_file',
+    'Rename or move a Markdown file or folder in a project.',
+    {
+      oldPath: z.string().describe('Current repo-relative path, e.g. "intro.md"'),
+      newPath: z.string().describe('New repo-relative path, e.g. "guides/intro.md"'),
+      projectId: projectIdField,
+      message: z.string().describe('Git commit message').optional(),
+    },
+    renameFileHandler,
+  )
+  server.tool(
+    'md4lp_rename_file',
+    'Rename or move a Markdown file or folder in a project.',
+    {
+      oldPath: z.string().describe('Current repo-relative path, e.g. "intro.md"'),
+      newPath: z.string().describe('New repo-relative path, e.g. "guides/intro.md"'),
+      projectId: projectIdField,
+      message: z.string().describe('Git commit message').optional(),
+    },
+    renameFileHandler,
   )
 
   // ── list_comments / md4lp_list_comments ───────────────────────────────────────

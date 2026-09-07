@@ -76,6 +76,86 @@ function rehypeHeadingIds() {
   }
 }
 
+const ALERT_CONFIGS: Record<string, { label: string; icon: string }> = {
+  note: { label: 'Note', icon: 'ℹ️' },
+  tip: { label: 'Tip', icon: '💡' },
+  important: { label: 'Important', icon: '💬' },
+  warning: { label: 'Warning', icon: '⚠️' },
+  caution: { label: 'Caution', icon: '🛑' },
+}
+
+const ALERT_REGEX = /^\s*\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\](?:\r?\n|[ \t]*)/i
+
+/** unified plugin: convert GitHub-style alert blockquotes into styled alert cards */
+function rehypeGithubAlerts() {
+  return (tree: HastNode): void => {
+    const visit = (node: HastNode): void => {
+      if (node.type === 'element' && node.tagName === 'blockquote') {
+        const firstChild = (node.children ?? []).find(c => c.type === 'element' && c.tagName === 'p')
+        if (firstChild && firstChild.children && firstChild.children.length > 0) {
+          const firstText = firstChild.children[0]
+          if (firstText && firstText.type === 'text' && firstText.value) {
+            const match = firstText.value.match(ALERT_REGEX)
+            if (match && match[1]) {
+              const typeKey = match[1].toLowerCase()
+              const config = ALERT_CONFIGS[typeKey] ?? { label: match[1], icon: 'ℹ️' }
+
+              node.properties = node.properties ?? {}
+              const prevClass = node.properties['className'] as string[] | string | undefined
+              const classes = Array.isArray(prevClass)
+                ? [...prevClass]
+                : typeof prevClass === 'string'
+                  ? prevClass.split(/\s+/).filter(Boolean)
+                  : []
+              classes.push('markdown-alert', `markdown-alert-${typeKey}`)
+              node.properties['className'] = classes
+
+              // Remove the alert marker [!TYPE]
+              firstText.value = firstText.value.slice(match[0].length)
+
+              // Build title node
+              const titleNode: HastNode = {
+                type: 'element',
+                tagName: 'p',
+                properties: { className: ['markdown-alert-title'] },
+                children: [
+                  {
+                    type: 'element',
+                    tagName: 'span',
+                    properties: { className: ['markdown-alert-icon'] },
+                    children: [{ type: 'text', value: `${config.icon} ` }],
+                  },
+                  {
+                    type: 'text',
+                    value: config.label,
+                  },
+                ],
+              }
+
+              // If the first text node is empty, remove it
+              if (firstText.value.length === 0) {
+                firstChild.children.shift()
+              }
+
+              // If firstChild paragraph has no children left, remove it from blockquote
+              if (firstChild.children.length === 0) {
+                const idx = node.children!.indexOf(firstChild)
+                if (idx !== -1) {
+                  node.children!.splice(idx, 1)
+                }
+              }
+
+              node.children = [titleNode, ...(node.children ?? [])]
+            }
+          }
+        }
+      }
+      for (const child of node.children ?? []) visit(child)
+    }
+    visit(tree)
+  }
+}
+
 // Reading-experience plugins (D19) run AFTER rehypeSourcePos so the block wrappers keep their
 // data-s/data-e source offsets — highlight.js/KaTeX only rewrite the block's INNER content, so
 // comments still anchor to the block (the code/equation), never inside the rendered widget.
@@ -86,6 +166,7 @@ const processor = unified()
   .use(remarkRehype)
   .use(rehypeSourcePos)
   .use(rehypeHeadingIds)
+  .use(rehypeGithubAlerts)
   .use(rehypeHighlight, { detect: true })
   .use(rehypeKatex) // captures KaTeX errors and renders them inline (won't break the pipeline)
   .use(rehypeStringify)
